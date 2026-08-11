@@ -185,7 +185,7 @@ def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
     return default
 
 def obtener_fecha_cumpleanos_formateada(row, df_columns):
-    """Combina las columnas separadas de día y mes para mostrar un formato completo DD de Mes (DD/MM)."""
+    """Combina las columnas separadas de día y mes para mostrar formato 'DD de Mes'."""
     col_dia = None
     col_mes = None
     
@@ -203,7 +203,7 @@ def obtener_fecha_cumpleanos_formateada(row, df_columns):
         dia = int(dia_str)
         mes = int(mes_str)
         if 1 <= dia <= 31 and 1 <= mes <= 12:
-            return f"{dia:02d} de {NOMBRES_MESES[mes]} ({dia:02d}/{mes:02d})"
+            return f"{dia} de {NOMBRES_MESES[mes]}"
             
     if dia_str and mes_str:
         return f"{dia_str} / {mes_str}"
@@ -258,7 +258,7 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
                     proximos.append({
                         "nombre": nombre_comp.upper(),
                         "dias": diferencia,
-                        "fecha_str": f"{dia:02d}/{mes:02d}",
+                        "fecha_str": f"{dia} de {NOMBRES_MESES[mes]}",
                         "telefono": obtener_valor_campo(row, df.columns, ["telefono", "celular"]),
                         "dependencia": obtener_valor_campo(row, df.columns, ["dependencia", "secretaria"])
                     })
@@ -309,6 +309,7 @@ def generar_pdf_ficha(row, df_columns):
         ["Correo Electrónico", obtener_valor_campo(row, df_columns, ['correo', 'email'])],
         ["Comuna / Barrio", f"{obtener_valor_campo(row, df_columns, ['comuna'])} - {obtener_valor_campo(row, df_columns, ['barrio'])}"],
         ["Municipio", obtener_valor_campo(row, df_columns, ['municipio'])],
+        ["Fecha Cumpleaños", obtener_fecha_cumpleanos_formateada(row, df_columns)],
         ["No. Amigos", obtener_valor_campo(row, df_columns, ['amigos'], '0')],
         ["Observaciones / Notas", obtener_valor_campo(row, df_columns, ['nota', 'observacion'])]
     ]
