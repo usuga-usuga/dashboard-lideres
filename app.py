@@ -185,7 +185,7 @@ def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
     return default
 
 def obtener_fecha_cumpleanos_formateada(row, df_columns):
-    """Combina las columnas separadas de día y mes para mostrar formato 'DD de Mes'."""
+    """Extrae día y mes sin importar si vienen separados o como fecha completa (DD/MM/YYYY)."""
     col_dia = None
     col_mes = None
     
@@ -196,19 +196,33 @@ def obtener_fecha_cumpleanos_formateada(row, df_columns):
         elif "unnamed: 12" in col_n or col_n in ["mes", "month"]:
             col_mes = col
             
-    dia_str = str(row[col_dia]).strip() if col_dia and col_dia in row else ""
-    mes_str = str(row[col_mes]).strip() if col_mes and col_mes in row else ""
+    val_dia = str(row[col_dia]).strip() if col_dia and col_dia in row else ""
+    val_mes = str(row[col_mes]).strip() if col_mes and col_mes in row else ""
     
-    if dia_str.isdigit() and mes_str.isdigit():
-        dia = int(dia_str)
-        mes = int(mes_str)
-        if 1 <= dia <= 31 and 1 <= mes <= 12:
-            return f"{dia} de {NOMBRES_MESES[mes]}"
+    # 1. Si la columna contiene una fecha con delimitador "/" o "-"
+    if "/" in val_dia or "-" in val_dia:
+        partes = val_dia.replace("-", "/").split("/")
+        if len(partes) >= 2:
+            try:
+                if len(partes[0]) <= 2 and len(partes[1]) <= 2:
+                    d, m = int(partes[0]), int(partes[1])
+                elif len(partes[0]) == 4:
+                    d, m = int(partes[2]), int(partes[1])
+                else:
+                    d, m = int(partes[0]), int(partes[1])
+                
+                if 1 <= d <= 31 and 1 <= m <= 12:
+                    return f"{d} de {NOMBRES_MESES[m]}"
+            except ValueError:
+                pass
+
+    # 2. Si vienen día y mes numéricos separados en columnas distintas
+    if val_dia.isdigit() and val_mes.isdigit():
+        d, m = int(val_dia), int(val_mes)
+        if 1 <= d <= 31 and 1 <= m <= 12:
+            return f"{d} de {NOMBRES_MESES[m]}"
             
-    if dia_str and mes_str:
-        return f"{dia_str} / {mes_str}"
-        
-    return dia_str or "Sin datos"
+    return val_dia or "Sin datos"
 
 def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     """Calcula las personas que cumplen años hoy o en los próximos N días."""
@@ -229,16 +243,25 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
             col_mes = col
 
     for idx, row in df.iterrows():
-        dia_str = str(row[col_dia]).strip() if col_dia else ""
-        mes_str = str(row[col_mes]).strip() if col_mes else ""
+        val_dia = str(row[col_dia]).strip() if col_dia else ""
+        val_mes = str(row[col_mes]).strip() if col_mes else ""
         
-        if not dia_str.isdigit() or not mes_str.isdigit():
-            continue
-            
-        dia = int(dia_str)
-        mes = int(mes_str)
+        dia, mes = None, None
         
-        if 1 <= dia <= 31 and 1 <= mes <= 12:
+        if "/" in val_dia or "-" in val_dia:
+            partes = val_dia.replace("-", "/").split("/")
+            if len(partes) >= 2:
+                try:
+                    if len(partes[0]) <= 2 and len(partes[1]) <= 2:
+                        dia, mes = int(partes[0]), int(partes[1])
+                    elif len(partes[0]) == 4:
+                        dia, mes = int(partes[2]), int(partes[1])
+                except ValueError:
+                    continue
+        elif val_dia.isdigit() and val_mes.isdigit():
+            dia, mes = int(val_dia), int(val_mes)
+
+        if dia and mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             try:
                 try:
                     cumple_este_ano = date(hoy.year, mes, dia)
