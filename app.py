@@ -21,16 +21,52 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------------------------
+# 1. SISTEMA DE LOGIN Y AUTENTICACIÓN
+# ------------------------------------------------------------------------------
+def verificar_login():
+    """Muestra la pantalla de inicio de sesión si el usuario no se ha autenticado."""
+    if st.session_state.get("autenticado", False):
+        return True
+
+    st.markdown("<h2 style='text-align: center; color: #0F172A;'>🔒 Sistema de Control de Acceso</h2>", unsafe_allow_html=True)
+    
+    col_c1, col_c2, col_c3 = st.columns([1, 1.2, 1])
+    with col_c2:
+        with st.container(border=True):
+            st.subheader("Iniciar Sesión")
+            with st.form("form_login"):
+                usuario = st.text_input("Usuario:")
+                password = st.text_input("Contraseña:", type="password")
+                boton_login = st.form_submit_button("Ingresar", use_container_width=True)
+
+                if boton_login:
+                    if "usuarios" in st.secrets and usuario in st.secrets["usuarios"]:
+                        if str(password) == str(st.secrets["usuarios"][usuario]):
+                            st.session_state.autenticado = True
+                            st.success("✅ Acceso concedido")
+                            st.rerun()
+                        else:
+                            st.error("❌ Contraseña incorrecta")
+                    else:
+                        st.error("❌ Usuario no registrado o secretos no configurados")
+
+    return False
+
+# Detiene la ejecución si no ha iniciado sesión
+if not verificar_login():
+    st.stop()
+
+# ------------------------------------------------------------------------------
 # ESTILO Y TEMA VISUAL CON ALTO CONTRASTE Y LEGIBILIDAD
 # ------------------------------------------------------------------------------
 st.markdown("""
     <style>
-    /* 1. Fondo general de la app (Gris claro tenue) */
+    /* 1. Fondo general de la app */
     .stApp {
         background-color: #F3F4F8 !important;
     }
     
-    /* 2. Regla global de contraste para textos en el cuerpo de la app */
+    /* 2. Regla global de contraste para textos */
     .stApp p, .stApp span, .stApp label, .stApp div, .stApp caption, .stMarkdown {
         color: #1E293B !important;
     }
@@ -41,12 +77,12 @@ st.markdown("""
         font-weight: 700 !important;
     }
     
-    /* 3. Barra lateral (Azul Marino Oscuro Elegante) */
+    /* 3. Barra lateral */
     [data-testid="stSidebar"] {
         background-color: #11223F !important;
     }
     
-    /* Textos dentro de la barra lateral (Blancos para resaltar en fondo oscuro) */
+    /* Textos dentro de la barra lateral */
     [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span {
         color: #FFFFFF !important;
     }
@@ -75,7 +111,7 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05) !important;
     }
 
-    /* Modificación de métricas (KPIs estilo tarjeta resaltada) */
+    /* Modificación de métricas KPIs */
     [data-testid="stMetricValue"] {
         color: #0F172A !important;
         font-weight: 800 !important;
@@ -85,7 +121,7 @@ st.markdown("""
         font-weight: 700 !important;
     }
     
-    /* Botones primarios (Color Naranja Acento) */
+    /* Botones primarios */
     .stButton > button {
         background-color: #F59E0B !important;
         color: #FFFFFF !important;
@@ -98,7 +134,7 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* Asegurar que los botones de descarga de PDF/CSV sean visibles */
+    /* Botones de descarga */
     .stDownloadButton > button {
         background-color: #11223F !important;
         color: #FFFFFF !important;
@@ -110,7 +146,7 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
-    /* Cajas de texto de entrada de datos (Inputs) */
+    /* Inputs de texto */
     input {
         color: #0F172A !important;
         background-color: #F8FAFC !important;
@@ -262,7 +298,7 @@ def generar_pdf_ficha(row, df_columns):
     return buffer
 
 # ------------------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE CONEXIÓN A GOOGLE DRIVE / GOOGLE SHEETS
+# 2. CONFIGURACIÓN DE CONEXIÓN A GOOGLE DRIVE / GOOGLE SHEETS
 # ------------------------------------------------------------------------------
 SHEET_ID = "1_ptZSSlI5johqy-OHZlMDfRiHaUmsBWH"
 GID = "1965411495"
@@ -291,7 +327,7 @@ if "df_lideres" not in st.session_state:
 df_lideres = st.session_state.df_lideres
 
 # ------------------------------------------------------------------------------
-# 2. SECCIÓN SUPERIOR: CUMPLEAÑOS
+# 3. SECCIÓN SUPERIOR: CUMPLEAÑOS
 # ------------------------------------------------------------------------------
 cumpleanos_lista = obtener_proximos_cumpleanos(df_lideres, dias_anticipacion=5)
 
@@ -317,9 +353,13 @@ with st.container(border=True):
 st.markdown("---")
 
 # ------------------------------------------------------------------------------
-# 3. BARRA LATERAL Y MÓDULOS DEL SISTEMA
+# 4. BARRA LATERAL Y MÓDULOS DEL SISTEMA
 # ------------------------------------------------------------------------------
 st.sidebar.title("Módulos del Sistema")
+
+if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.autenticado = False
+    st.rerun()
 
 if st.sidebar.button("🔄 Recargar datos de Google Drive", use_container_width=True):
     st.cache_data.clear()
@@ -465,7 +505,7 @@ elif menu == "📈 Panel de Control Ejecutivos":
         
         st.markdown("---")
         
-        # --- GRÁFICOS ANALÍTICOS OPTIMIZADOS (PLOTLY CON COLOR OSCURO FORZADO) ---
+        # --- GRÁFICOS ANALÍTICOS OPTIMIZADOS ---
         col_g1, col_g2 = st.columns(2)
         
         with col_g1:
