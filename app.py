@@ -158,6 +158,12 @@ st.markdown("""
 # ------------------------------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ------------------------------------------------------------------------------
+NOMBRES_MESES = {
+    1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+    5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+    9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+}
+
 def normalizar(texto):
     """Quita tildes, mayúsculas y espacios para comparaciones flexibles."""
     if not isinstance(texto, str):
@@ -177,6 +183,32 @@ def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
                 if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
                     return val
     return default
+
+def obtener_fecha_cumpleanos_formateada(row, df_columns):
+    """Combina las columnas separadas de día y mes para mostrar un formato completo DD de Mes (DD/MM)."""
+    col_dia = None
+    col_mes = None
+    
+    for col in df_columns:
+        col_n = normalizar(col)
+        if "fecha de cumple" in col_n or col_n in ["dia", "day"]:
+            col_dia = col
+        elif "unnamed: 12" in col_n or col_n in ["mes", "month"]:
+            col_mes = col
+            
+    dia_str = str(row[col_dia]).strip() if col_dia and col_dia in row else ""
+    mes_str = str(row[col_mes]).strip() if col_mes and col_mes in row else ""
+    
+    if dia_str.isdigit() and mes_str.isdigit():
+        dia = int(dia_str)
+        mes = int(mes_str)
+        if 1 <= dia <= 31 and 1 <= mes <= 12:
+            return f"{dia:02d} de {NOMBRES_MESES[mes]} ({dia:02d}/{mes:02d})"
+            
+    if dia_str and mes_str:
+        return f"{dia_str} / {mes_str}"
+        
+    return dia_str or "Sin datos"
 
 def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     """Calcula las personas que cumplen años hoy o en los próximos N días."""
@@ -453,7 +485,7 @@ if menu == "🔍 Consulta Detallada":
                         st.markdown("### 📍 Ubicación y Fechas")
                         st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'])}")
                         st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'])}")
-                        st.markdown(f"**Fecha Cumpleaños:** {obtener_valor_campo(row, df_lideres.columns, ['cumpleaños', 'cumpleanos', 'nacimiento'])}")
+                        st.markdown(f"**Fecha Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns)}")
 
                 col4, col5 = st.columns(2)
 
