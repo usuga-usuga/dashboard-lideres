@@ -11,6 +11,21 @@ st.set_page_config(
     page_title="Dashboard Líderes", page_icon="📊", layout="wide"
 )
 
+MESES_ESPANOL = {
+    1: "enero",
+    2: "febrero",
+    3: "marzo",
+    4: "abril",
+    5: "mayo",
+    6: "junio",
+    7: "julio",
+    8: "agosto",
+    9: "septiembre",
+    10: "octubre",
+    11: "noviembre",
+    12: "diciembre",
+}
+
 
 # --- SISTEMA DE AUTENTICACIÓN DINÁMICO ---
 def validar_credenciales(usuario_ingresado, password_ingresado):
@@ -74,6 +89,17 @@ st.sidebar.button(
 )
 
 
+# --- FUNCIONES AUXILIARES INTELIGENTES ---
+
+def normalizar_texto(texto):
+    """Elimina tildes, convierte a minúsculas y remueve espacios sobrantes."""
+    if not isinstance(texto, str):
+        texto = str(texto)
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return texto.lower().strip()
+
+
 def obtener_rango_filas_excel(sheet, col_letter="A"):
     if not col_letter:
         col_letter = "A"
@@ -93,13 +119,103 @@ def obtener_rango_filas_excel(sheet, col_letter="A"):
 
 
 def obtener_valor(row, posibles_columnas, valor_defecto="Sin datos"):
-    for col in row.index:
-        for pos in posibles_columnas:
-            if pos.lower() == str(col).strip().lower():
+    """Busca un valor tolerando variaciones de nombre, tildes y espacios."""
+    # 1. Busqueda por coincidencia exacta (normalizada)
+    for pos in posibles_columnas:
+        pos_norm = normalizar_texto(pos)
+        for col in row.index:
+            col_norm = normalizar_texto(col)
+            if col_norm == pos_norm:
                 val = row[col]
-                if pd.notna(val) and str(val).strip() != "":
+                if (
+                    pd.notna(val)
+                    and str(val).strip() != ""
+                    and str(val).strip().lower() != "nan"
+                ):
                     return val
+
+    # 2. Búsqueda por coincidencia parcial si falla la exacta
+    for pos in posibles_columnas:
+        pos_norm = normalizar_texto(pos)
+        for col in row.index:
+            col_norm = normalizar_texto(col)
+            if pos_norm in col_norm:
+                val = row[col]
+                if (
+                    pd.notna(val)
+                    and str(val).strip() != ""
+                    and str(val).strip().lower() != "nan"
+                ):
+                    return val
+
     return valor_defecto
+
+
+def obtener_dia_mes_cumpleanos(row):
+    """Obtiene día y mes ya sea de columnas separadas o derivándolo de una fecha completa."""
+    # Búsqueda directa en columnas de Día y Mes
+    dia = obtener_valor(
+        row,
+        [
+            "Dia Cumpleaños",
+            "Día Cumpleaños",
+            "Dia de Cumpleaños",
+            "Día de Cumpleaños",
+            "Dia Cumpleanos",
+            "Día Cumpleanos",
+            "Día",
+            "Dia",
+        ],
+        None,
+    )
+    mes = obtener_valor(
+        row,
+        [
+            "Mes Cumpleaños",
+            "Mes de Cumpleaños",
+            "Mes Cumpleanos",
+            "Mes",
+        ],
+        None,
+    )
+
+    if (
+        dia is not None
+        and mes is not None
+        and str(dia) != "Sin datos"
+        and str(mes) != "Sin datos"
+    ):
+        return str(mes), str(dia)
+
+    # Si no están separados, buscar en columnas de Fecha Completa
+    posibles_fechas = [
+        "Cumpleaños",
+        "Cumpleanos",
+        "Fecha de Nacimiento",
+        "Fecha Nacimiento",
+        "Fecha Cumpleaños",
+        "Fecha Cumpleanos",
+        "Fecha de Cumpleaños",
+        "Fecha",
+        "Nacimiento",
+        "F_Nacimiento",
+    ]
+    fecha_val = obtener_valor(row, posibles_fechas, None)
+
+    if fecha_val is not None and str(fecha_val) != "Sin datos":
+        try:
+            dt = pd.to_datetime(fecha_val, dayfirst=True, errors="coerce")
+            if pd.notna(dt):
+                mes_str = MESES_ESPANOL.get(dt.month, str(dt.month))
+                dia_str = str(dt.day)
+                return mes_str, dia_str
+        except Exception:
+            pass
+
+    mes_final = mes if (mes is not None and str(mes) != "Sin datos") else "Sin datos"
+    dia_final = dia if (dia is not None and str(dia) != "Sin datos") else "Sin datos"
+
+    return mes_final, dia_final
 
 
 # --- MÓDULO 1: CONSULTA DETALLADA ---
@@ -164,6 +280,7 @@ if modulo == "🔍 Consulta Detallada":
                     registro, ["Dependencia", "Entidad", "Área"]
                 )
 
+                # Tarjeta principal de encabezado (Blanca)
                 st.markdown(
                     f"""
                     <div style="background-color: #ffffff; color: #111111; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">
@@ -176,6 +293,10 @@ if modulo == "🔍 Consulta Detallada":
                     unsafe_allow_html=True,
                 )
 
+                # Obtener día y mes de cumpleaños
+                mes_cumple, dia_cumple = obtener_dia_mes_cumpleanos(registro)
+
+                # Fila Superior (3 Tarjetas)
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
@@ -228,13 +349,10 @@ if modulo == "🔍 Consulta Detallada":
                         st.write(
                             f"**Barrio:** {obtener_valor(registro, ['Barrio'])}"
                         )
-                        st.write(
-                            f"**Mes Cumpleaños:** {obtener_valor(registro, ['Mes Cumpleaños', 'Mes Cumpleanos', 'Mes'])}"
-                        )
-                        st.write(
-                            f"**Día Cumpleaños:** {obtener_valor(registro, ['Dia Cumpleaños', 'Día Cumpleaños', 'Dia'])}"
-                        )
+                        st.write(f"**Mes Cumpleaños:** {mes_cumple}")
+                        st.write(f"**Día Cumpleaños:** {dia_cumple}")
 
+                # Fila Inferior (2 Tarjetas)
                 col4, col5 = st.columns([1.2, 1.8])
 
                 with col4:
@@ -301,7 +419,7 @@ elif modulo == "➕ Registro de Nuevo Usuario":
             st.success("¡Registro guardado exitosamente!")
 
 
-# --- MÓDULO 3: EDITAR / MODIFICAR REGISTROS (IDÉNTICO A LA IMAGEN) ---
+# --- MÓDULO 3: EDITAR / MODIFICAR REGISTROS ---
 elif modulo == "✏️ Editar / Modificar Registros":
     st.title("✏️ Edición de Datos de Usuarios")
     st.write(
@@ -315,13 +433,11 @@ elif modulo == "✏️ Editar / Modificar Registros":
     else:
         df = st.session_state["df_data"]
 
-        # Campo exacto según la imagen
         cedula_buscar = st.text_input(
             "Ingrese la Cédula/ID del usuario a editar:", placeholder="Ej: 3474244"
         )
 
         if cedula_buscar:
-            # Buscar coincidencia exacta o parcial en columnas relativas a Cédula/ID
             cols_cedula = [
                 c
                 for c in df.columns
@@ -341,7 +457,6 @@ elif modulo == "✏️ Editar / Modificar Registros":
                 if not matches.empty:
                     idx_match = matches.index[0]
 
-            # Si no hace match directo por columna específica, buscar en todo el DF
             if idx_match is None:
                 matches_gen = df[
                     df.astype(str).apply(
@@ -358,12 +473,9 @@ elif modulo == "✏️ Editar / Modificar Registros":
                 st.success("✅ Usuario localizado. Modifique los campos a continuación:")
 
                 fila_actual = df.loc[idx_match]
-                
-                # Formulario para modificar datos
+
                 with st.form("form_editar_usuario"):
                     nuevos_valores = {}
-
-                    # Organizar los campos en un grid de 2 columnas
                     cols = list(df.columns)
                     c_col1, c_col2 = st.columns(2)
 
