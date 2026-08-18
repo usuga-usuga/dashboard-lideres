@@ -133,6 +133,8 @@ def obtener_rango_filas_excel(sheet, col_letter):
     if not col_letter:
         col_letter = "A"
     
+    # Agrega aquí el resto de tu lógica para obtener las filas...
+    
     max_row = sheet.max_row
     min_row = None
     last_row = None
