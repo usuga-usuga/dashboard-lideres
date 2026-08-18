@@ -51,11 +51,10 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 
-# --- NAVEGACIÓN Y MENÚ LATERAL (IDÉNTICO A LA IMAGEN) ---
+# --- NAVEGACIÓN Y MENÚ LATERAL ---
 
 st.sidebar.title("Módulos del Sistema")
 
-# Selección mediante botones de radio (st.sidebar.radio)
 modulo = st.sidebar.radio(
     "Seleccione una opción:",
     [
@@ -69,7 +68,6 @@ modulo = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 
-# Botón de cierre de sesión
 st.sidebar.button(
     "🚪 Cerrar Sesión",
     on_click=lambda: st.session_state.update({"autenticado": False}),
@@ -94,7 +92,18 @@ def obtener_rango_filas_excel(sheet, col_letter="A"):
     return primera_fila, ultima_fila
 
 
-# --- MÓDULO 1: CONSULTA DETALLADA ---
+def obtener_valor(row, posibles_columnas, valor_defecto="Sin datos"):
+    """Busca una columna en la fila del dataframe ignorando mayúsculas/minúsculas."""
+    for col in row.index:
+        for pos in posibles_columnas:
+            if pos.lower() == str(col).strip().lower():
+                val = row[col]
+                if pd.notna(val) and str(val).strip() != "":
+                    return val
+    return valor_defecto
+
+
+# --- MÓDULO 1: CONSULTA DETALLADA (FICHA VISUAL) ---
 if modulo == "🔍 Consulta Detallada":
     st.title("🔍 Consulta Detallada")
 
@@ -104,19 +113,181 @@ if modulo == "🔍 Consulta Detallada":
         )
     else:
         df = st.session_state["df_data"]
-        st.write("Filtra y consulta información específica de los registros:")
 
-        busqueda = st.text_input("🔎 Buscar término:")
+        # Buscador por cédula o nombre
+        busqueda = st.text_input(
+            "🔎 Buscar por Cédula o Nombre completo:",
+            placeholder="Ejemplo: 15513554 o WILFREDO",
+        )
+
         if busqueda:
+            # Filtrar DataFrame
             mascara = df.astype(str).apply(
                 lambda row: row.str.contains(
                     busqueda, case=False, na=False
                 ).any(),
                 axis=1,
             )
-            st.dataframe(df[mascara], use_container_width=True)
+            resultados = df[mascara]
+
+            if len(resultados) > 0:
+                # Si hay múltiples coincidencia, permitir seleccionar una persona
+                if len(resultados) > 1:
+                    opciones_personas = [
+                        f"{i+1}. {obtener_valor(row, ['Nombre', 'Nombres', 'Nombre Completo', 'Lider'])} - Cédula: {obtener_valor(row, ['Cedula', 'Cédula', 'ID', 'Documento'])}"
+                        for i, (_, row) in enumerate(resultados.iterrows())
+                    ]
+                    seleccion = st.selectbox(
+                        "Se encontraron varios registros. Selecciona uno:",
+                        opciones_personas,
+                    )
+                    idx = opciones_personas.index(seleccion)
+                    registro = resultados.iloc[idx]
+                else:
+                    registro = resultados.iloc[0]
+
+                st.success("✅ Registro localizado con éxito.")
+
+                # Extraer campos clave
+                nombre_persona = str(
+                    obtener_valor(
+                        registro,
+                        [
+                            "Nombre",
+                            "Nombres",
+                            "Nombre Completo",
+                            "Lider",
+                            "Líder",
+                        ],
+                        "NOMBRE NO REGISTRADO",
+                    )
+                ).upper()
+                cedula_persona = obtener_valor(
+                    registro, ["Cedula", "Cédula", "ID", "Documento", "CC"]
+                )
+                dependencia_persona = obtener_valor(
+                    registro, ["Dependencia", "Entidad", "Área"]
+                )
+
+                # --- 1. TARJETA ENCABEZADO (BLANCA) ---
+                st.markdown(
+                    f"""
+                    <div style="background-color: #ffffff; color: #111111; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">
+                        <h1 style="margin:0; font-size: 32px; font-weight: 800; color: #000000; text-transform: uppercase;">{nombre_persona}</h1>
+                        <p style="margin: 5px 0 0 0; color: #555555; font-size: 15px; font-weight: 500;">
+                            <b>Cédula:</b> {cedula_persona} | <b>Dependencia:</b> {dependencia_persona}
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                # --- 2. FILA SUPERIOR: 3 TARJETAS ---
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    with st.container(border=True):
+                        st.markdown("### 📌 Información Laboral")
+                        st.write(
+                            f"**Dependencia:** {obtener_valor(registro, ['Dependencia', 'Entidad'])}"
+                        )
+                        st.write(
+                            f"**Secretaría:** {obtener_valor(registro, ['Secretaria', 'Secretaría'])}"
+                        )
+                        st.write(
+                            f"**Cargo Actual:** {obtener_valor(registro, ['Cargo', 'Cargo Actual'])}"
+                        )
+                        st.write(
+                            f"**Profesión:** {obtener_valor(registro, ['Profesion', 'Profesión', 'Título'])}"
+                        )
+                        st.write(
+                            f"**Líder Apoyo:** {obtener_valor(registro, ['Lider Apoyo', 'Líder Apoyo', 'Apoyo'])}"
+                        )
+
+                with col2:
+                    with st.container(border=True):
+                        st.markdown("### 📞 Contacto Directo")
+                        st.write(
+                            f"**Teléfono / Celular:** {obtener_valor(registro, ['Telefono', 'Teléfono', 'Celular', 'Contacto'])}"
+                        )
+                        correo_val = obtener_valor(
+                            registro, ["Correo", "Correo Electrónico", "Email"]
+                        )
+                        if (
+                            correo_val != "Sin datos"
+                            and "@" in str(correo_val)
+                        ):
+                            st.markdown(
+                                f"**Correo Electrónico:** [{correo_val}](mailto:{correo_val})"
+                            )
+                        else:
+                            st.write(f"**Correo Electrónico:** {correo_val}")
+                        st.write(
+                            f"**Redes Sociales:** {obtener_valor(registro, ['Redes Sociales', 'Redes'])}"
+                        )
+
+                with col3:
+                    with st.container(border=True):
+                        st.markdown("### 📍 Ubicación y Fechas")
+                        st.write(
+                            f"**Comuna:** {obtener_valor(registro, ['Comuna'])}"
+                        )
+                        st.write(
+                            f"**Barrio:** {obtener_valor(registro, ['Barrio'])}"
+                        )
+                        st.write(
+                            f"**Mes Cumpleaños:** {obtener_valor(registro, ['Mes Cumpleaños', 'Mes Cumpleanos', 'Mes'])}"
+                        )
+                        st.write(
+                            f"**Día Cumpleaños:** {obtener_valor(registro, ['Dia Cumpleaños', 'Día Cumpleaños', 'Dia'])}"
+                        )
+
+                # --- 3. FILA INFERIOR: 2 TARJETAS ---
+                col4, col5 = st.columns([1.2, 1.8])
+
+                with col4:
+                    with st.container(border=True):
+                        st.markdown("### 📌 Notas de Proyección")
+                        st.write(
+                            f"**Proyección:** {obtener_valor(registro, ['Proyeccion', 'Proyección'])}"
+                        )
+                        st.write(
+                            f"**Registros:** {obtener_valor(registro, ['Registros'])}"
+                        )
+                        st.write(
+                            f"**Municipio:** {obtener_valor(registro, ['Municipio'])}"
+                        )
+                        st.write(
+                            f"**Notas:** {obtener_valor(registro, ['Notas', 'Observaciones'])}"
+                        )
+
+                with col5:
+                    with st.container(border=True):
+                        st.markdown("### 📋 Planillas de Votación")
+                        st.write(
+                            f"**No. Amigos:** {obtener_valor(registro, ['No. Amigos', 'Amigos', 'Num Amigos'], 0)}"
+                        )
+                        st.write(
+                            f"**Municipio de Bello:** {obtener_valor(registro, ['Municipio de Bello', 'Bello'], 0)}"
+                        )
+                        st.write(
+                            f"**Otros Municipios / Deptos:** {obtener_valor(registro, ['Otros Municipios', 'Otros Municipios / Deptos'], 0)}"
+                        )
+                        st.write(
+                            f"**No está en el Censo:** {obtener_valor(registro, ['No esta en el Censo', 'No está en el Censo'], 0)}"
+                        )
+                        st.write(
+                            f"**Cédula Errónea:** {obtener_valor(registro, ['Cedula Erronea', 'Cédula Errónea'], 0)}"
+                        )
+
+            else:
+                st.warning(
+                    f"No se encontró ningún registro que coincida con '{busqueda}'."
+                )
         else:
-            st.dataframe(df, use_container_width=True)
+            st.info(
+                "Ingresa una Cédula o Nombre en el campo de búsqueda arriba para visualizar la ficha técnica."
+            )
 
 
 # --- MÓDULO 2: REGISTRO DE NUEVO USUARIO ---
@@ -163,7 +334,6 @@ elif modulo == "📈 Panel de Control Ejecutivos":
         df = st.session_state["df_data"]
         inicio, fin = st.session_state.get("rango_info", (1, len(df)))
 
-        # KPIs
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Total Registros", len(df))
         k2.metric("Columnas", len(df.columns))
@@ -172,7 +342,6 @@ elif modulo == "📈 Panel de Control Ejecutivos":
 
         st.markdown("---")
 
-        # Gráficos
         cols_categoricas = df.select_dtypes(
             include=["object", "category"]
         ).columns.tolist()
