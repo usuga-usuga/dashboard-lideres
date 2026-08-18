@@ -12,6 +12,61 @@ st.set_page_config(
 )
 
 
+# --- SISTEMA DE AUTENTICACIÓN ---
+def validar_credenciales(usuario_ingresado, password_ingresado):
+    """Valida si el usuario y contraseña coinciden con las credenciales configuradas."""
+    # Verificar si existen secretos configurados en Streamlit Cloud
+    if "credentials" in st.secrets:
+        usuario_correcto = st.secrets["credentials"].get("username", "admin")
+        password_correcto = st.secrets["credentials"].get(
+            "password", "admin123"
+        )
+    else:
+        # Credenciales por defecto si no se han configurado los secretos
+        usuario_correcto = "admin"
+        password_correcto = "admin123"
+
+    return (usuario_ingresado == usuario_correcto) and (
+        password_ingresado == password_correcto
+    )
+
+
+# Inicializar estado de sesión para el login
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+# --- PANTALLA DE LOGIN ---
+if not st.session_state["autenticado"]:
+    st.title("🔒 Acceso Restringido")
+    st.write("Ingresa tus credenciales para acceder al Dashboard de Líderes.")
+
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        with st.form("form_login"):
+            usuario = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            boton_login = st.form_submit_button("Iniciar Sesión")
+
+            if boton_login:
+                if validar_credenciales(usuario, password):
+                    st.session_state["autenticado"] = True
+                    st.success("¡Acceso concedido!")
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos.")
+
+    st.stop()  # Detiene la ejecución del script aquí si no está autenticado
+
+
+# --- CÓDIGO DE LA APLICACIÓN (SOLO SE MUESTRA SI ESTÁ AUTENTICADO) ---
+
+# Botón para cerrar sesión en la barra lateral
+st.sidebar.button(
+    "🚪 Cerrar Sesión",
+    on_click=lambda: st.session_state.update({"autenticado": False}),
+)
+
+
 def obtener_rango_filas_excel(sheet, col_letter="A"):
     """Obtiene la primera y última fila con datos basándose en una columna específica."""
     if not col_letter:
@@ -58,7 +113,7 @@ if archivo_subido is not None:
                 nrows=(fin - inicio + 1),
             )
 
-            # Limpieza básica: eliminar columnas/filas totalmente vacías
+            # Limpieza básica
             df = df.dropna(how="all", axis=1).dropna(how="all", axis=0)
 
             # --- BARRA LATERAL: FILTROS DINÁMICOS ---
@@ -66,13 +121,11 @@ if archivo_subido is not None:
 
             df_filtrado = df.copy()
 
-            # Detectar automáticamente columnas con texto o categorías para los filtros
             cols_categoricas = df.select_dtypes(
                 include=["object", "category"]
             ).columns.tolist()
 
             if cols_categoricas:
-                # Seleccionar la primera columna categórica como filtro principal
                 col_filtro_1 = st.sidebar.selectbox(
                     "Filtrar por campo primario:",
                     options=["Todos"] + cols_categoricas,
@@ -92,7 +145,6 @@ if archivo_subido is not None:
                             df_filtrado[col_filtro_1].isin(seleccion_1)
                         ]
 
-            # Buscador global
             busqueda_texto = st.sidebar.text_input(
                 "Búsqueda por palabra clave:"
             )
@@ -129,7 +181,6 @@ if archivo_subido is not None:
                     index=0,
                 )
 
-                # Conteo de datos
                 conteo_df = (
                     df_filtrado[col_grafico]
                     .value_counts()
@@ -137,7 +188,6 @@ if archivo_subido is not None:
                 )
                 conteo_df.columns = [col_grafico, "Cantidad"]
 
-                # Gráfico de Barras
                 fig_barras = px.bar(
                     conteo_df.head(10),
                     x=col_grafico,
@@ -151,7 +201,6 @@ if archivo_subido is not None:
                     fig_barras, use_container_width=True
                 )
 
-                # Gráfico de Pastel
                 fig_pie = px.pie(
                     conteo_df.head(5),
                     names=col_grafico,
@@ -171,7 +220,6 @@ if archivo_subido is not None:
                 df_filtrado, use_container_width=True, height=350
             )
 
-            # Botón para descargar los datos filtrados en Excel
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 df_filtrado.to_excel(writer, index=False, sheet_name="Datos")
