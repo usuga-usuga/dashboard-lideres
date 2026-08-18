@@ -93,7 +93,6 @@ def obtener_rango_filas_excel(sheet, col_letter="A"):
 
 
 def obtener_valor(row, posibles_columnas, valor_defecto="Sin datos"):
-    """Busca una columna en la fila del dataframe ignorando mayúsculas/minúsculas."""
     for col in row.index:
         for pos in posibles_columnas:
             if pos.lower() == str(col).strip().lower():
@@ -103,7 +102,7 @@ def obtener_valor(row, posibles_columnas, valor_defecto="Sin datos"):
     return valor_defecto
 
 
-# --- MÓDULO 1: CONSULTA DETALLADA (FICHA VISUAL) ---
+# --- MÓDULO 1: CONSULTA DETALLADA ---
 if modulo == "🔍 Consulta Detallada":
     st.title("🔍 Consulta Detallada")
 
@@ -114,14 +113,12 @@ if modulo == "🔍 Consulta Detallada":
     else:
         df = st.session_state["df_data"]
 
-        # Buscador por cédula o nombre
         busqueda = st.text_input(
             "🔎 Buscar por Cédula o Nombre completo:",
             placeholder="Ejemplo: 15513554 o WILFREDO",
         )
 
         if busqueda:
-            # Filtrar DataFrame
             mascara = df.astype(str).apply(
                 lambda row: row.str.contains(
                     busqueda, case=False, na=False
@@ -131,7 +128,6 @@ if modulo == "🔍 Consulta Detallada":
             resultados = df[mascara]
 
             if len(resultados) > 0:
-                # Si hay múltiples coincidencia, permitir seleccionar una persona
                 if len(resultados) > 1:
                     opciones_personas = [
                         f"{i+1}. {obtener_valor(row, ['Nombre', 'Nombres', 'Nombre Completo', 'Lider'])} - Cédula: {obtener_valor(row, ['Cedula', 'Cédula', 'ID', 'Documento'])}"
@@ -148,7 +144,6 @@ if modulo == "🔍 Consulta Detallada":
 
                 st.success("✅ Registro localizado con éxito.")
 
-                # Extraer campos clave
                 nombre_persona = str(
                     obtener_valor(
                         registro,
@@ -169,7 +164,6 @@ if modulo == "🔍 Consulta Detallada":
                     registro, ["Dependencia", "Entidad", "Área"]
                 )
 
-                # --- 1. TARJETA ENCABEZADO (BLANCA) ---
                 st.markdown(
                     f"""
                     <div style="background-color: #ffffff; color: #111111; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1);">
@@ -182,7 +176,6 @@ if modulo == "🔍 Consulta Detallada":
                     unsafe_allow_html=True,
                 )
 
-                # --- 2. FILA SUPERIOR: 3 TARJETAS ---
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
@@ -242,7 +235,6 @@ if modulo == "🔍 Consulta Detallada":
                             f"**Día Cumpleaños:** {obtener_valor(registro, ['Dia Cumpleaños', 'Día Cumpleaños', 'Dia'])}"
                         )
 
-                # --- 3. FILA INFERIOR: 2 TARJETAS ---
                 col4, col5 = st.columns([1.2, 1.8])
 
                 with col4:
@@ -309,17 +301,101 @@ elif modulo == "➕ Registro de Nuevo Usuario":
             st.success("¡Registro guardado exitosamente!")
 
 
-# --- MÓDULO 3: EDITAR / MODIFICAR REGISTROS ---
+# --- MÓDULO 3: EDITAR / MODIFICAR REGISTROS (IDÉNTICO A LA IMAGEN) ---
 elif modulo == "✏️ Editar / Modificar Registros":
-    st.title("✏️ Editar / Modificar Registros")
-    st.write("Selecciona un registro para modificar sus valores:")
+    st.title("✏️ Edición de Datos de Usuarios")
+    st.write(
+        "Busque al usuario por Cédula, modifique los datos necesarios y guarde los cambios."
+    )
 
-    if "df_data" in st.session_state:
-        df = st.session_state["df_data"]
-        st.dataframe(df.head(5), use_container_width=True)
-        st.info("Funcionalidad de edición lista para conectar con tu base.")
+    if "df_data" not in st.session_state:
+        st.warning(
+            "⚠️ No hay datos cargados. Por favor ve al módulo '📋 Base de Datos Completa' para subir tu archivo."
+        )
     else:
-        st.warning("⚠️ Debes cargar una base de datos primero.")
+        df = st.session_state["df_data"]
+
+        # Campo exacto según la imagen
+        cedula_buscar = st.text_input(
+            "Ingrese la Cédula/ID del usuario a editar:", placeholder="Ej: 3474244"
+        )
+
+        if cedula_buscar:
+            # Buscar coincidencia exacta o parcial en columnas relativas a Cédula/ID
+            cols_cedula = [
+                c
+                for c in df.columns
+                if any(
+                    x in str(c).lower()
+                    for x in ["cedula", "cédula", "id", "documento"]
+                )
+            ]
+
+            idx_match = None
+            if cols_cedula:
+                col_c = cols_cedula[0]
+                matches = df[
+                    df[col_c].astype(str).str.strip()
+                    == str(cedula_buscar).strip()
+                ]
+                if not matches.empty:
+                    idx_match = matches.index[0]
+
+            # Si no hace match directo por columna específica, buscar en todo el DF
+            if idx_match is None:
+                matches_gen = df[
+                    df.astype(str).apply(
+                        lambda r: r.str.contains(
+                            cedula_buscar, case=False, na=False
+                        ).any(),
+                        axis=1,
+                    )
+                ]
+                if not matches_gen.empty:
+                    idx_match = matches_gen.index[0]
+
+            if idx_match is not None:
+                st.success("✅ Usuario localizado. Modifique los campos a continuación:")
+
+                fila_actual = df.loc[idx_match]
+                
+                # Formulario para modificar datos
+                with st.form("form_editar_usuario"):
+                    nuevos_valores = {}
+
+                    # Organizar los campos en un grid de 2 columnas
+                    cols = list(df.columns)
+                    c_col1, c_col2 = st.columns(2)
+
+                    for i, col_name in enumerate(cols):
+                        val_orig = (
+                            ""
+                            if pd.isna(fila_actual[col_name])
+                            else str(fila_actual[col_name])
+                        )
+                        target_col = c_col1 if i % 2 == 0 else c_col2
+
+                        nuevos_valores[col_name] = target_col.text_input(
+                            label=f"**{col_name}**", value=val_orig
+                        )
+
+                    guardar_cambios = st.form_submit_button(
+                        "💾 Guardar Cambios"
+                    )
+
+                    if guardar_cambios:
+                        for col_name, val_nuevo in nuevos_valores.items():
+                            st.session_state["df_data"].at[
+                                idx_match, col_name
+                            ] = val_nuevo
+                        st.success(
+                            "¡Los cambios han sido guardados exitosamente!"
+                        )
+                        st.rerun()
+            else:
+                st.error(
+                    f"No se encontró ningún usuario con la Cédula/ID '{cedula_buscar}'."
+                )
 
 
 # --- MÓDULO 4: PANEL DE CONTROL EJECUTIVOS ---
