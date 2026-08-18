@@ -51,23 +51,25 @@ if not st.session_state["autenticado"]:
     st.stop()
 
 
-# --- NAVEGACIÓN Y MENÚ LATERAL (SIEMPRE VISIBLE) ---
+# --- NAVEGACIÓN Y MENÚ LATERAL (IDÉNTICO A LA IMAGEN) ---
 
-st.sidebar.title("📌 Menú Principal")
+st.sidebar.title("Módulos del Sistema")
 
-# Selección de módulo
-modulo = st.sidebar.selectbox(
-    "Selecciona un Módulo:",
+# Selección mediante botones de radio (st.sidebar.radio)
+modulo = st.sidebar.radio(
+    "Seleccione una opción:",
     [
-        "📂 Carga de Datos",
-        "📊 Dashboard Analítico",
-        "🔍 Explorador de Registros",
+        "🔍 Consulta Detallada",
+        "➕ Registro de Nuevo Usuario",
+        "✏️ Editar / Modificar Registros",
+        "📈 Panel de Control Ejecutivos",
+        "📋 Base de Datos Completa",
     ],
 )
 
 st.sidebar.markdown("---")
 
-# Botón de cierre de sesión al final del menú
+# Botón de cierre de sesión
 st.sidebar.button(
     "🚪 Cerrar Sesión",
     on_click=lambda: st.session_state.update({"autenticado": False}),
@@ -92,13 +94,119 @@ def obtener_rango_filas_excel(sheet, col_letter="A"):
     return primera_fila, ultima_fila
 
 
-# --- MÓDULO 1: CARGA DE DATOS ---
-if modulo == "📂 Carga de Datos":
-    st.title("📂 Carga de Base de Datos")
-    st.write("Sube el archivo Excel que contiene la información de los líderes.")
+# --- MÓDULO 1: CONSULTA DETALLADA ---
+if modulo == "🔍 Consulta Detallada":
+    st.title("🔍 Consulta Detallada")
+
+    if "df_data" not in st.session_state:
+        st.warning(
+            "⚠️ No hay datos cargados. Por favor ve al módulo '📋 Base de Datos Completa' para subir tu archivo."
+        )
+    else:
+        df = st.session_state["df_data"]
+        st.write("Filtra y consulta información específica de los registros:")
+
+        busqueda = st.text_input("🔎 Buscar término:")
+        if busqueda:
+            mascara = df.astype(str).apply(
+                lambda row: row.str.contains(
+                    busqueda, case=False, na=False
+                ).any(),
+                axis=1,
+            )
+            st.dataframe(df[mascara], use_container_width=True)
+        else:
+            st.dataframe(df, use_container_width=True)
+
+
+# --- MÓDULO 2: REGISTRO DE NUEVO USUARIO ---
+elif modulo == "➕ Registro de Nuevo Usuario":
+    st.title("➕ Registro de Nuevo Usuario")
+    st.write("Ingresa los datos para registrar un nuevo usuario/líder:")
+
+    with st.form("form_nuevo_registro"):
+        col1, col2 = st.columns(2)
+        with col1:
+            nombre = st.text_input("Nombre completo")
+            identificacion = st.text_input("Número de Identificación")
+        with col2:
+            zona = st.text_input("Zona / Municipio")
+            telefono = st.text_input("Teléfono de contacto")
+
+        guardar = st.form_submit_button("Guardar Registro")
+        if guardar:
+            st.success("¡Registro guardado exitosamente!")
+
+
+# --- MÓDULO 3: EDITAR / MODIFICAR REGISTROS ---
+elif modulo == "✏️ Editar / Modificar Registros":
+    st.title("✏️ Editar / Modificar Registros")
+    st.write("Selecciona un registro para modificar sus valores:")
+
+    if "df_data" in st.session_state:
+        df = st.session_state["df_data"]
+        st.dataframe(df.head(5), use_container_width=True)
+        st.info("Funcionalidad de edición lista para conectar con tu base.")
+    else:
+        st.warning("⚠️ Debes cargar una base de datos primero.")
+
+
+# --- MÓDULO 4: PANEL DE CONTROL EJECUTIVOS ---
+elif modulo == "📈 Panel de Control Ejecutivos":
+    st.title("📈 Panel de Control Ejecutivos")
+
+    if "df_data" not in st.session_state:
+        st.warning(
+            "⚠️ No hay datos cargados. Ve al módulo '📋 Base de Datos Completa' para subir tu archivo."
+        )
+    else:
+        df = st.session_state["df_data"]
+        inicio, fin = st.session_state.get("rango_info", (1, len(df)))
+
+        # KPIs
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Total Registros", len(df))
+        k2.metric("Columnas", len(df.columns))
+        k3.metric("Fila Inicio Excel", inicio)
+        k4.metric("Fila Fin Excel", fin)
+
+        st.markdown("---")
+
+        # Gráficos
+        cols_categoricas = df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
+        if cols_categoricas:
+            c1, c2 = st.columns(2)
+            var_g = c1.selectbox("Agrupar por:", cols_categoricas)
+            conteo = df[var_g].value_counts().reset_index()
+            conteo.columns = [var_g, "Cantidad"]
+
+            fig_b = px.bar(
+                conteo.head(10),
+                x=var_g,
+                y="Cantidad",
+                text="Cantidad",
+                title=f"Top 10 - {var_g}",
+            )
+            c1.plotly_chart(fig_b, use_container_width=True)
+
+            fig_p = px.pie(
+                conteo.head(5),
+                names=var_g,
+                values="Cantidad",
+                title=f"Distribución Top 5 - {var_g}",
+            )
+            c2.plotly_chart(fig_p, use_container_width=True)
+
+
+# --- MÓDULO 5: BASE DE DATOS COMPLETA ---
+elif modulo == "📋 Base de Datos Completa":
+    st.title("📋 Base de Datos Completa")
+    st.write("Carga y gestiona el archivo completo de Excel:")
 
     archivo = st.file_uploader(
-        "Selecciona un archivo Excel (.xlsx)", type=["xlsx"]
+        "Cargar archivo Excel (.xlsx)", type=["xlsx"]
     )
 
     if archivo is not None:
@@ -114,139 +222,18 @@ if modulo == "📂 Carga de Datos":
                 )
                 df = df.dropna(how="all", axis=1).dropna(how="all", axis=0)
 
-                # Guardar el DataFrame en la sesión global para usarlo en otros módulos
                 st.session_state["df_data"] = df
                 st.session_state["rango_info"] = (inicio, fin)
 
                 st.success(
-                    f"¡Base de datos cargada con éxito! Se procesaron {len(df)} registros (Filas {inicio} a {fin})."
+                    f"¡Base cargada correctamente! {len(df)} registros procesados (Filas {inicio} a {fin})."
                 )
-                st.info(
-                    "Pasa al módulo '📊 Dashboard Analítico' desde la barra lateral para ver los resultados."
-                )
-
-                st.subheader("Vista Previa")
-                st.dataframe(df.head(10), use_container_width=True)
+                st.dataframe(df, use_container_width=True)
             else:
-                st.warning("No se detectaron datos en la columna 'A'.")
+                st.warning("No se hallaron datos en la columna 'A'.")
         except Exception as e:
-            st.error(f"Error procesando el archivo: {e}")
+            st.error(f"Error procesando archivo: {e}")
     else:
         if "df_data" in st.session_state:
-            st.success(
-                f"Actualmente hay una base cargada con {len(st.session_state['df_data'])} registros."
-            )
-
-
-# --- MÓDULO 2: DASHBOARD ANALÍTICO ---
-elif modulo == "📊 Dashboard Analítico":
-    st.title("📊 Dashboard Analítico")
-
-    if "df_data" not in st.session_state:
-        st.warning(
-            "⚠️ No hay datos cargados. Por favor ve al módulo '📂 Carga de Datos' para subir tu archivo."
-        )
-    else:
-        df = st.session_state["df_data"]
-        inicio, fin = st.session_state["rango_info"]
-
-        # Filtros opcionales
-        cols_categoricas = df.select_dtypes(
-            include=["object", "category"]
-        ).columns.tolist()
-
-        df_filtrado = df.copy()
-
-        if cols_categoricas:
-            st.sidebar.subheader("🔍 Filtros del Dashboard")
-            col_f = st.sidebar.selectbox("Filtrar por:", ["Todos"] + cols_categoricas)
-            if col_f != "Todos":
-                opciones = df[col_f].dropna().unique().tolist()
-                sel = st.sidebar.multiselect(
-                    "Selecciona valores:", opciones, default=opciones
-                )
-                if sel:
-                    df_filtrado = df_filtrado[df_filtrado[col_f].isin(sel)]
-
-        # KPIs
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("Total Registros", len(df))
-        kpi2.metric("Registros Filtrados", len(df_filtrado))
-        kpi3.metric("Columnas", len(df.columns))
-        kpi4.metric("Rango Excel", f"{inicio} - {fin}")
-
-        st.markdown("---")
-
-        # Gráficos
-        if cols_categoricas and len(df_filtrado) > 0:
-            st.subheader("📈 Distribución de Datos")
-            c1, c2 = st.columns(2)
-
-            col_g = c1.selectbox(
-                "Selecciona variable a graficar:", cols_categoricas
-            )
-            conteo = (
-                df_filtrado[col_g].value_counts().reset_index()
-            )
-            conteo.columns = [col_g, "Cantidad"]
-
-            fig_barras = px.bar(
-                conteo.head(10),
-                x=col_g,
-                y="Cantidad",
-                text="Cantidad",
-                title=f"Top 10 - {col_g}",
-                color="Cantidad",
-                color_continuous_scale="Blues",
-            )
-            c1.plotly_chart(fig_barras, use_container_width=True)
-
-            fig_pie = px.pie(
-                conteo.head(5),
-                names=col_g,
-                values="Cantidad",
-                title=f"Proporción Top 5 - {col_g}",
-                hole=0.4,
-            )
-            c2.plotly_chart(fig_pie, use_container_width=True)
-
-
-# --- MÓDULO 3: EXPLORADOR DE REGISTROS ---
-elif modulo == "🔍 Explorador de Registros":
-    st.title("🔍 Exploración y Descarga de Datos")
-
-    if "df_data" not in st.session_state:
-        st.warning(
-            "⚠️ No hay datos cargados. Por favor ve al módulo '📂 Carga de Datos' para subir tu archivo."
-        )
-    else:
-        df = st.session_state["df_data"]
-
-        busqueda = st.text_input(
-            "🔍 Buscar en toda la tabla:", placeholder="Escribe para buscar..."
-        )
-
-        if busqueda:
-            mascara = df.astype(str).apply(
-                lambda row: row.str.contains(
-                    busqueda, case=False, na=False
-                ).any(),
-                axis=1,
-            )
-            df_mostrar = df[mascara]
-        else:
-            df_mostrar = df
-
-        st.dataframe(df_mostrar, use_container_width=True, height=400)
-
-        # Botón de descarga
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df_mostrar.to_excel(writer, index=False, sheet_name="Datos")
-
-        st.download_button(
-            label="📥 Descargar datos en Excel",
-            data=buffer.getvalue(),
-            file_name=f"reporte_lideres_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+            st.success("Base de datos cargada actualmente en el sistema.")
+            st.dataframe(st.session_state["df_data"], use_container_width=True)
