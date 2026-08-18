@@ -1,4 +1,13 @@
+from datetime import date, datetime
+import unicodedata
 import openpyxl
+import pandas as pd
+import streamlit as st
+
+# Configuración de la página
+st.set_page_config(
+    page_title="Dashboard Líderes", page_icon="📊", layout="wide"
+)
 
 
 def obtener_rango_filas_excel(sheet, col_letter="A"):
@@ -32,39 +41,36 @@ def obtener_rango_filas_excel(sheet, col_letter="A"):
     return primera_fila, ultima_fila
 
 
-def obtener_rango_filas_rapido(sheet, col_letter="A"):
-    """Versión optimizada para archivos grandes.
+# Interfaz de Streamlit
+st.title("📊 Dashboard Líderes")
+st.write("Sube tu archivo de Excel para analizar la información:")
 
-    Retorna la primera y última fila con datos en la columna indicada.
-    """
-    col_letter = col_letter.upper().strip() if col_letter else "A"
+# Componente para cargar archivos
+archivo_subido = st.file_uploader(
+    "Selecciona un archivo Excel (.xlsx)", type=["xlsx"]
+)
 
-    # Obtiene solo las celdas de la columna deseada
-    celdas = sheet[col_letter]
+if archivo_subido is not None:
+    try:
+        # Cargar el libro desde el archivo subido en memoria
+        wb = openpyxl.load_workbook(archivo_subido, data_only=True)
+        sheet = wb.active
 
-    # Filtra las celdas que contienen datos reales
-    filas_con_datos = [
-        cell.row
-        for cell in celdas
-        if cell.value is not None and str(cell.value).strip() != ""
-    ]
+        # Obtener rango de filas
+        inicio, fin = obtener_rango_filas_excel(sheet, col_letter="A")
 
-    if not filas_con_datos:
-        return None, None
+        if inicio and fin:
+            st.success(
+                f"La información inicia en la fila **{inicio}** y termina en la fila **{fin}**."
+            )
 
-    return filas_con_datos[0], filas_con_datos[-1]
+            # Ejemplo de lectura adicional con Pandas
+            df = pd.read_excel(archivo_subido)
+            st.dataframe(df)
+        else:
+            st.warning("La columna evaluada no contiene datos.")
 
-
-# Ejemplo de uso:
-if __name__ == "__main__":
-    # Cargar el libro de trabajo
-    wb = openpyxl.load_workbook("tu_archivo.xlsx", data_only=True)
-    sheet = wb.active
-
-    # Obtener el rango
-    inicio, fin = obtener_rango_filas_excel(sheet, col_letter="A")
-
-    if inicio and fin:
-        print(f"La información inicia en la fila {inicio} y termina en la {fin}")
-    else:
-        print("La columna evaluada está vacía.")
+    except Exception as e:
+        st.error(f"Error al procesar el archivo Excel: {e}")
+else:
+    st.info("Por favor, sube un archivo Excel para continuar.")
