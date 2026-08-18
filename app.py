@@ -12,22 +12,20 @@ st.set_page_config(
 )
 
 
-# --- SISTEMA DE AUTENTICACIÓN ---
+# --- SISTEMA DE AUTENTICACIÓN DINÁMICO ---
 def validar_credenciales(usuario_ingresado, password_ingresado):
-    """Valida si el usuario y contraseña coinciden con las credenciales configuradas."""
-    # Verificar si existen secretos configurados en Streamlit Cloud
-    if "credentials" in st.secrets:
-        usuario_correcto = st.secrets["credentials"].get("username", "admin")
-        password_correcto = st.secrets["credentials"].get(
-            "password", "admin123"
-        )
-    else:
-        # Credenciales por defecto si no se han configurado los secretos
-        usuario_correcto = "admin"
-        password_correcto = "admin123"
+    """Valida el usuario y contraseña contra la sección [usuarios] de Streamlit Secrets."""
+    if "usuarios" in st.secrets:
+        usuarios_dict = st.secrets["usuarios"]
+        # Buscar coincidencia exacta de usuario
+        if usuario_ingresado in usuarios_dict:
+            return str(usuarios_dict[usuario_ingresado]) == str(
+                password_ingresado
+            )
 
-    return (usuario_ingresado == usuario_correcto) and (
-        password_ingresado == password_correcto
+    # Credenciales de respaldo en caso de no haber configurado Secrets
+    return (usuario_ingresado == "admin") and (
+        password_ingresado == "admin123"
     )
 
 
@@ -55,12 +53,12 @@ if not st.session_state["autenticado"]:
                 else:
                     st.error("Usuario o contraseña incorrectos.")
 
-    st.stop()  # Detiene la ejecución del script aquí si no está autenticado
+    st.stop()  # Detiene la ejecución si el usuario no ha iniciado sesión
 
 
-# --- CÓDIGO DE LA APLICACIÓN (SOLO SE MUESTRA SI ESTÁ AUTENTICADO) ---
+# --- CÓDIGO DEL DASHBOARD (SÓLO SI ESTÁ AUTENTICADO) ---
 
-# Botón para cerrar sesión en la barra lateral
+# Botón para cerrar sesión
 st.sidebar.button(
     "🚪 Cerrar Sesión",
     on_click=lambda: st.session_state.update({"autenticado": False}),
