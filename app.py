@@ -696,7 +696,7 @@ elif menu == "➕ Registro de Nuevo Usuario":
         st.warning("La base de datos aún no se ha cargado.")
 
 # ==============================================================================
-# MÓDULO 4: EDITAR / MODIFICAR REGISTROS
+# MÓDULO 4: EDITAR / MODIFICAR REGISTROS (Continuación y Cierre)
 # ==============================================================================
 elif menu == "✏️ Editar / Modificar Registros":
     st.title("✏️ Edición de Datos de Usuarios")
@@ -720,55 +720,51 @@ elif menu == "✏️ Editar / Modificar Registros":
                     cols = list(df_lideres.columns)
                     c_a, c_b = st.columns(2)
                     
+                    # Generación dinámica de inputs alternando entre columnas
                     for i, col_name in enumerate(cols):
                         val_actual = str(usuario_data[col_name])
                         if val_actual.lower() in ["nan", "none", "null", "<na>"]:
                             val_actual = ""
-                            
+                        
                         if i % 2 == 0:
                             datos_editados[col_name] = c_a.text_input(f"{col_name}:", value=val_actual)
                         else:
                             datos_editados[col_name] = c_b.text_input(f"{col_name}:", value=val_actual)
-                    
-                    guardar_cambios = st.form_submit_button("💾 Guardar Cambios")
+                            
+                    guardar_cambios = st.form_submit_button("💾 Guardar Cambios", use_container_width=True)
                     
                     if guardar_cambios:
-                        st.session_state.df_lideres = st.session_state.df_lideres.astype(object)
-                        for col_name, nuevo_val in datos_editados.items():
-                            st.session_state.df_lideres.at[user_idx, col_name] = str(nuevo_val)
-                        
-                        st.success("✅ Datos del usuario modificados correctamente.")
+                        for col_name, val in datos_editados.items():
+                            st.session_state.df_lideres.at[user_idx, col_name] = val
+                        st.success("✅ Datos actualizados correctamente en la vista local.")
                         st.rerun()
             else:
-                st.warning("⚠️ No se encontró ningún usuario con esa Cédula/ID.")
+                st.warning("⚠️ No se encontró ningún usuario con ese parámetro.")
     else:
-        st.warning("La base de datos aún no se ha cargado.")
+        st.info("La base de datos aún no se ha cargado.")
 
 # ==============================================================================
 # MÓDULO 5: BASE DE DATOS COMPLETA
 # ==============================================================================
 elif menu == "📋 Base de Datos Completa":
-    st.subheader("📋 Base de Datos Completa")
+    st.subheader("📋 Vista de Base de Datos Completa")
     
     if not df_lideres.empty:
-        filtro = st.text_input("🔎 Buscar o filtrar registros en la tabla:", placeholder="Escriba un nombre, cédula, dependencia, etc...")
+        st.write(f"Total de registros: **{len(df_lideres)}**")
         
-        if filtro.strip():
-            mask = df_lideres.astype(str).apply(lambda row: row.str.contains(filtro.strip(), case=False, na=False)).any(axis=1)
-            df_mostrar = df_lideres[mask]
-            st.caption(f"Mostrando **{len(df_mostrar)}** de **{len(df_lideres)}** registros encontrados.")
-        else:
-            df_mostrar = df_lideres
-            st.caption(f"Total de registros: **{len(df_lideres)}**")
-            
-        st.dataframe(df_mostrar, use_container_width=True)
+        # Tabla interactiva
+        st.dataframe(df_lideres, use_container_width=True)
         
-        csv_bytes = df_mostrar.to_csv(index=False).encode('utf-8')
+        # Generar CSV UTF-8 codificado correctamente para Excel
+        csv_buffer = io.BytesIO()
+        df_lideres.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+        
         st.download_button(
-            label="📥 Descargar Vista Actual a CSV",
-            data=csv_bytes,
-            file_name="Base_Datos_Lideres_Filtrada.csv",
-            mime="text/csv"
+            label="📥 Descargar Base de Datos Completa (CSV)",
+            data=csv_buffer.getvalue(),
+            file_name=f"Base_Lideres_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            use_container_width=True
         )
     else:
-        st.warning("La base de datos está vacía o no se ha podido cargar.")
+        st.info("No hay datos disponibles para mostrar.")
