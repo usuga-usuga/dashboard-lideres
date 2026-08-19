@@ -293,20 +293,10 @@ def generar_pdf_ficha(row, df_columns):
     story.append(Paragraph(f"Cédula / ID: <b>{cedula}</b>", subtitle_style))
     story.append(Spacer(1, 12))
     
-    data = [
-        [Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])],
-        ["Dependencia", obtener_valor_campo(row, df_columns, ['dependencia', 'area'])],
-        ["Secretaría", obtener_valor_campo(row, df_columns, ['secretaria'])],
-        ["Cargo", obtener_valor_campo(row, df_columns, ['cargo'])],
-        ["Profesión", obtener_valor_campo(row, df_columns, ['profesion'])],
-        ["Teléfono / Celular", obtener_valor_campo(row, df_columns, ['telefono', 'celular'])],
-        ["Correo Electrónico", obtener_valor_campo(row, df_columns, ['correo', 'email'])],
-        ["Comuna / Barrio", f"{obtener_valor_campo(row, df_columns, ['comuna'])} - {obtener_valor_campo(row, df_columns, ['barrio'])}"],
-        ["Municipio", obtener_valor_campo(row, df_columns, ['municipio'])],
-        ["Fecha Cumpleaños", obtener_fecha_cumpleanos_formateada(row, df_columns)],
-        ["No. Amigos", obtener_valor_campo(row, df_columns, ['amigos'], '0')],
-        ["Observaciones / Notas", obtener_valor_campo(row, df_columns, ['nota', 'observacion'])]
-    ]
+    data = [[Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])]]
+    for col in df_columns:
+        val = str(row[col]).strip()
+        data.append([col, val if val and val.lower() not in ["nan", "none", "null", "<na>"] else "Sin datos"])
     
     table = Table(data, colWidths=[180, 340])
     table.setStyle(TableStyle([
@@ -413,30 +403,31 @@ if menu == "🔍 Consulta Detallada":
 
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.markdown("### 📌 Información Laboral")
-                        st.markdown(f"**Dependencia:** {dependencia}")
-                        st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria'])}")
-                        st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo'])}")
-                        st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion'])}")
+                    # MOSTRAR TODA LA INFORMACIÓN DE CADA COLUMNA DE LA BASE DE DATOS
+                    cols_vista = st.columns(3)
+                    url_pdf_encontrado = None
 
-                    with col2:
-                        st.markdown("### 📞 Contacto Directo")
-                        st.markdown(f"**Teléfono:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular'])}")
-                        correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email'])
-                        st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
+                    for i, columna in enumerate(df_lideres.columns):
+                        valor = str(row[columna]).strip()
+                        if not valor or valor.lower() in ["nan", "none", "null", "<na>"]:
+                            valor = "Sin datos"
 
-                    with col3:
-                        st.markdown("### 📍 Ubicación y Fechas")
-                        st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'])}")
-                        st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'])}")
-                        st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns)}")
+                        # Guardar URL de PDF para el botón inferior si coincide
+                        col_norm = normalizar(columna)
+                        if ("pdf" in col_norm or "url" in col_norm) and valor.startswith("http"):
+                            url_pdf_encontrado = valor
 
-                    url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf'], "Sin datos")
-                    if url_pdf_val != "Sin datos" and url_pdf_val.startswith("http"):
+                        with cols_vista[i % 3]:
+                            if valor.startswith("http://") or valor.startswith("https://"):
+                                st.markdown(f"**{columna}:** [{valor}]({valor})")
+                            elif "@" in valor and "." in valor:
+                                st.markdown(f"**{columna}:** [{valor}](mailto:{valor})")
+                            else:
+                                st.markdown(f"**{columna}:** {valor}")
+
+                    if url_pdf_encontrado:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=False)
+                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_encontrado, use_container_width=False)
 
                 st.markdown("---")
         elif busqueda:
