@@ -403,27 +403,74 @@ if menu == "🔍 Consulta Detallada":
 
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                    # MOSTRAR TODA LA INFORMACIÓN DE CADA COLUMNA DE LA BASE DE DATOS
-                    cols_vista = st.columns(3)
+                    # CLASIFICACIÓN DINÁMICA DE TODAS LAS COLUMNAS EN LOS TRES BLOQUES DE LA TARJETA
+                    info_laboral = []
+                    contacto_directo = []
+                    ubicacion_fechas = []
                     url_pdf_encontrado = None
 
-                    for i, columna in enumerate(df_lideres.columns):
-                        valor = str(row[columna]).strip()
-                        if not valor or valor.lower() in ["nan", "none", "null", "<na>"]:
-                            valor = "Sin datos"
+                    # Palabras clave para clasificar cada campo
+                    kw_laboral = ["dependencia", "secretaria", "cargo", "profesion", "empresa", "puesto", "sector", "labor", "contrato", "area"]
+                    kw_contacto = ["telefono", "celular", "correo", "email", "redes", "whatsapp", "contacto", "movil", "amigos", "link", "url"]
+                    kw_ubicacion = ["comuna", "barrio", "municipio", "direccion", "fecha", "cumple", "nacimiento", "mes", "dia", "ubicacion", "zona"]
 
-                        # Guardar URL de PDF para el botón inferior si coincide
-                        col_norm = normalizar(columna)
-                        if ("pdf" in col_norm or "url" in col_norm) and valor.startswith("http"):
-                            url_pdf_encontrado = valor
+                    # Omitir de la lista interna los campos que ya se muestran en la cabecera del usuario
+                    cols_omitir = [
+                        col for col in df_lideres.columns 
+                        if normalizar(col) in ["nombre", "nombres", "apellido", "apellidos", "cedula", "identificacion", "doc", "id"]
+                    ]
 
-                        with cols_vista[i % 3]:
-                            if valor.startswith("http://") or valor.startswith("https://"):
-                                st.markdown(f"**{columna}:** [{valor}]({valor})")
-                            elif "@" in valor and "." in valor:
-                                st.markdown(f"**{columna}:** [{valor}](mailto:{valor})")
+                    for col in df_lideres.columns:
+                        if col in cols_omitir:
+                            continue
+                            
+                        val = str(row[col]).strip()
+                        if not val or val.lower() in ["nan", "none", "null", "<na>"]:
+                            val = "Sin datos"
+
+                        col_norm = normalizar(col)
+
+                        # Detectar URL de planilla PDF para el botón inferior
+                        if ("pdf" in col_norm or "url" in col_norm) and val.startswith("http"):
+                            url_pdf_encontrado = val
+
+                        # Clasificación dinámica por nombre de columna
+                        if any(kw in col_norm for kw in kw_laboral):
+                            info_laboral.append((col, val))
+                        elif any(kw in col_norm for kw in kw_contacto):
+                            contacto_directo.append((col, val))
+                        elif any(kw in col_norm for kw in kw_ubicacion):
+                            ubicacion_fechas.append((col, val))
+                        else:
+                            # Distribución equilibrada para campos adicionales no clasificados
+                            lens = [len(info_laboral), len(contacto_directo), len(ubicacion_fechas)]
+                            min_idx = lens.index(min(lens))
+                            if min_idx == 0: info_laboral.append((col, val))
+                            elif min_idx == 1: contacto_directo.append((col, val))
+                            else: ubicacion_fechas.append((col, val))
+
+                    # RENDERING EN 3 COLUMNAS CON ESTILO TARJETA
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        st.markdown("### 📌 **Información Laboral**")
+                        for label, val in info_laboral:
+                            st.markdown(f"**{label}:** {val}")
+
+                    with col2:
+                        st.markdown("### 📞 **Contacto Directo**")
+                        for label, val in contacto_directo:
+                            if val.startswith("http://") or val.startswith("https://"):
+                                st.markdown(f"**{label}:** [{val}]({val})")
+                            elif "@" in val and "." in val:
+                                st.markdown(f"**{label}:** [{val}](mailto:{val})")
                             else:
-                                st.markdown(f"**{columna}:** {valor}")
+                                st.markdown(f"**{label}:** {val}")
+
+                    with col3:
+                        st.markdown("### 📍 **Ubicación y Fechas**")
+                        for label, val in ubicacion_fechas:
+                            st.markdown(f"**{label}:** {val}")
 
                     if url_pdf_encontrado:
                         st.markdown("<br>", unsafe_allow_html=True)
