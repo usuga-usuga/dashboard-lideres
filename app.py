@@ -305,7 +305,7 @@ menu = st.sidebar.radio(
 )
 
 # ==============================================================================
-# MÓDULO 1: CONSULTA DETALLADA (CORREGIDO Y ALINEADO CON CAMPOS EXACTOS)
+# MÓDULO 1: CONSULTA DETALLADA (ORDEN Mapeado por Índice Posicional Exacto)
 # ==============================================================================
 if menu == "🔍 Consulta Detallada":
     st.subheader("🔍 Consulta Detallada de Líderes")
@@ -320,36 +320,61 @@ if menu == "🔍 Consulta Detallada":
 
         if not resultado.empty:
             st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
-            
-            # Helper estricto para extraer datos garantizando el campo correcto
-            def extraer_campo_estricto(row, posibles_nombres, default="Sin datos", cols_usadas=None):
-                for col in df_lideres.columns:
-                    col_limpia = normalizar(col)
-                    for nombre in posibles_nombres:
-                        if normalizar(nombre) == col_limpia:
-                            if cols_usadas is not None:
-                                cols_usadas.add(col)
-                            val = str(row[col]).strip()
-                            if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
-                                return val
+
+            # Función para obtener el valor seguro por índice de columna (0, 1, 2, ...)
+            def get_val(row, index, default="Sin datos"):
+                try:
+                    val = str(row.iloc[index]).strip()
+                    if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
+                        return val
+                except Exception:
+                    pass
                 return default
 
             for idx, row in resultado.iterrows():
-                cols_usadas = set()
+                # MAPEO POSICIONAL ESTÍCTO DE LA HOJA DE CÁLCULO
+                # Asumiendo el orden estándar de las columnas de tu plantilla:
                 
-                # 1. Extracción de Identificación y Nombres
-                cedula = extraer_campo_estricto(row, ["Cedula", "Identificacion", "ID", "Documento"], "Sin datos", cols_usadas)
-                nombres = extraer_campo_estricto(row, ["Nombres", "Nombre"], "", cols_usadas)
-                apellidos = extraer_campo_estricto(row, ["Apellidos", "Apellido"], "", cols_usadas)
+                # --- Encabezado ---
+                cedula = get_val(row, 0)         # Columna A (0): Cédula / ID
+                nombres = get_val(row, 1, "")    # Columna B (1): Nombres
+                apellidos = get_val(row, 2, "")  # Columna C (2): Apellidos
                 nombre_completo = f"{nombres} {apellidos}".strip() or "NOMBRE NO REGISTRADO"
+                
+                # --- Card 1: Información Laboral ---
+                dependencia = get_val(row, 3)    # Columna D (3): Dependencia
+                secretaria = get_val(row, 4)     # Columna E (4): Secretaría
+                cargo = get_val(row, 5)          # Columna F (5): Cargo Actual
+                profesion = get_val(row, 6)      # Columna G (6): Profesión
+                lider_apoyo = get_val(row, 7)    # Columna H (7): Líder / Apoyo
+
+                # --- Card 2: Contacto Directo ---
+                telefono = get_val(row, 8)       # Columna I (8): Teléfono / Celular
+                correo = get_val(row, 9)         # Columna J (9): Correo
+                redes = get_val(row, 10)         # Columna K (10): Redes Sociales
+
+                # --- Card 3: Ubicación y Fechas ---
+                municipio = get_val(row, 11)     # Columna L (11): Municipio
+                comuna = get_val(row, 12)        # Columna M (12): Comuna
+                barrio = get_val(row, 13)        # Columna N (13): Barrio
+                cumpleanos = get_val(row, 14)    # Columna O (14): Cumpleaños
+
+                # --- Card 4: Proyección y Notas ---
+                proyeccion = get_val(row, 15)    # Columna P (15): Proyección
+                registros = get_val(row, 16)     # Columna Q (16): Registros
+                notas = get_val(row, 17)         # Columna R (17): Notas / Observaciones
+
+                # --- Card 5: Planillas y Registros ---
+                amigos = get_val(row, 18, "0")   # Columna S (18): No. Amigos
+                bello = get_val(row, 19)        # Columna T (19): Municipio de Bello
+                otros_muni = get_val(row, 20)   # Columna U (20): Otros Municipios
 
                 with st.container(border=True):
                     # Cabecera
                     col_header1, col_header2 = st.columns([3, 1])
                     with col_header1:
                         st.markdown(f"# **{nombre_completo.upper()}**")
-                        dependencia_header = extraer_campo_estricto(row, ["Dependencia"], "Sin datos", cols_usadas)
-                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia_header}")
+                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
                     with col_header2:
                         pdf_file = generar_pdf_ficha(row, df_lideres.columns)
                         st.download_button(
@@ -360,82 +385,71 @@ if menu == "🔍 Consulta Detallada":
                             use_container_width=True
                         )
 
-                    # --- Fila 1: Información Laboral, Contacto y Ubicación ---
+                    # --- FILA 1 ---
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         with st.container(border=True):
                             st.markdown("### 📌 Información Laboral")
-                            st.markdown(f"**Dependencia:** {dependencia_header}")
-                            st.markdown(f"**Secretaría:** {extraer_campo_estricto(row, ['Secretaría', 'Secretaria'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Cargo Actual:** {extraer_campo_estricto(row, ['Cargo Actual', 'Cargo'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Profesión:** {extraer_campo_estricto(row, ['Profesión', 'Profesion'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Líder / Apoyo:** {extraer_campo_estricto(row, ['Líder / Apoyo', 'Lider / Apoyo', 'Lider', 'Apoyo'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Dependencia:** {dependencia}")
+                            st.markdown(f"**Secretaría:** {secretaria}")
+                            st.markdown(f"**Cargo Actual:** {cargo}")
+                            st.markdown(f"**Profesión:** {profesion}")
+                            st.markdown(f"**Líder / Apoyo:** {lider_apoyo}")
 
                     with col2:
                         with st.container(border=True):
                             st.markdown("### 📞 Contacto Directo")
-                            st.markdown(f"**Teléfono / Celular:** {extraer_campo_estricto(row, ['Teléfono / Celular', 'Telefono / Celular', 'Telefono', 'Celular'], 'Sin datos', cols_usadas)}")
-                            correo = extraer_campo_estricto(row, ['Correo', 'Correo Electrónico', 'Email'], 'Sin datos', cols_usadas)
+                            st.markdown(f"**Teléfono / Celular:** {telefono}")
                             st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
-                            st.markdown(f"**Redes Sociales:** {extraer_campo_estricto(row, ['Redes Sociales', 'Redes'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Redes Sociales:** {redes}")
 
                     with col3:
                         with st.container(border=True):
                             st.markdown("### 📍 Ubicación y Fechas")
-                            st.markdown(f"**Municipio:** {extraer_campo_estricto(row, ['Municipio'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Comuna:** {extraer_campo_estricto(row, ['Comuna'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Barrio:** {extraer_campo_estricto(row, ['Barrio'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns, cols_usadas)}")
+                            st.markdown(f"**Municipio:** {municipio}")
+                            st.markdown(f"**Comuna:** {comuna}")
+                            st.markdown(f"**Barrio:** {barrio}")
+                            st.markdown(f"**Cumpleaños:** {cumpleanos}")
 
-                    # --- Fila 2: Proyección y Notas / Planillas ---
+                    # --- FILA 2 ---
                     col4, col5 = st.columns(2)
                     with col4:
                         with st.container(border=True):
                             st.markdown("### 📌 Proyección y Notas")
-                            st.markdown(f"**Proyección:** {extraer_campo_estricto(row, ['Proyección', 'Proyeccion'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Registros:** {extraer_campo_estricto(row, ['Registros', 'Registro'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Notas / Observaciones:** {extraer_campo_estricto(row, ['Notas / Observaciones', 'Notas', 'Observaciones'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Proyección:** {proyeccion}")
+                            st.markdown(f"**Registros:** {registros}")
+                            st.markdown(f"**Notas / Observaciones:** {notas}")
 
                     with col5:
                         with st.container(border=True):
                             st.markdown("### 📋 Planillas y Registros")
-                            st.markdown(f"**No. Amigos:** {extraer_campo_estricto(row, ['No. Amigos', 'Nro Amigos', 'Amigos'], '0', cols_usadas)}")
-                            st.markdown(f"**Municipio de Bello:** {extraer_campo_estricto(row, ['Municipio de Bello', 'Bello'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Otros Municipios:** {extraer_campo_estricto(row, ['Otros Municipios'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**No. Amigos:** {amigos}")
+                            st.markdown(f"**Municipio de Bello:** {bello}")
+                            st.markdown(f"**Otros Municipios:** {otros_muni}")
 
-                    # --- Fila 3: Información Restante (Mismo estilo visual) ---
-                    # Identifica cualquier columna del Excel que no haya sido mapeada en los bloques anteriores
-                    cols_restantes = [c for c in df_lideres.columns if c not in cols_usadas and normalizar(c) not in ["url_pdf", "pdf", "link", "planilla"]]
-                    
-                    campos_adicionales = []
-                    for col in cols_restantes:
-                        val = str(row[col]).strip()
-                        if val and val.lower() not in ["nan", "none", "<na>", "null", ""]:
-                            campos_adicionales.append((col, val))
-                    
-                    if campos_adicionales:
-                        mitad = (len(campos_adicionales) + 1) // 2
-                        bloque1 = campos_adicionales[:mitad]
-                        bloque2 = campos_adicionales[mitad:]
+                    # --- FILA 3: Columnas sobrantes después de la posición 21 ---
+                    if len(df_lideres.columns) > 21:
+                        extra_data = []
+                        for c_idx in range(21, len(df_lideres.columns)):
+                            col_nombre = df_lideres.columns[c_idx]
+                            v = get_val(row, c_idx)
+                            if v != "Sin datos":
+                                extra_data.append((col_nombre, v))
 
-                        col_add1, col_add2 = st.columns(2)
-                        with col_add1:
-                            with st.container(border=True):
-                                st.markdown("### 📂 Información Complementaria")
-                                for key, val in bloque1:
-                                    st.markdown(f"**{key}:** {val}")
-                        
-                        if bloque2:
-                            with col_add2:
+                        if extra_data:
+                            mitad = (len(extra_data) + 1) // 2
+                            col_add1, col_add2 = st.columns(2)
+                            with col_add1:
                                 with st.container(border=True):
-                                    st.markdown("### 📊 Datos Adicionales")
-                                    for key, val in bloque2:
-                                        st.markdown(f"**{key}:** {val}")
-
-                    # Botón de enlace PDF (si existe)
-                    url_pdf_val = extraer_campo_estricto(row, ['url_pdf', 'pdf', 'link', 'planilla'], "Sin datos")
-                    if url_pdf_val != "Sin datos" and url_pdf_val.startswith("http"):
-                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=True)
+                                    st.markdown("### 📂 Información Complementaria")
+                                    for k, v in extra_data[:mitad]:
+                                        st.markdown(f"**{k}:** {v}")
+                            with col_add2:
+                                if extra_data[mitad:]:
+                                    with st.container(border=True):
+                                        st.markdown("### 📊 Datos Adicionales")
+                                        for k, v in extra_data[mitad:]:
+                                            st.markdown(f"**{k}:** {v}")
 
                 st.markdown("---")
         elif busqueda:
