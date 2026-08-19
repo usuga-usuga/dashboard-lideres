@@ -330,6 +330,7 @@ if menu == "🔍 Consulta Detallada":
                 dependencia = obtener_valor_campo(row, df_lideres.columns, ["dependencia", "area", "sector"])
 
                 with st.container(border=True):
+                    # Cabecera con nombre y botón PDF
                     col_header1, col_header2 = st.columns([3, 1])
                     with col_header1:
                         st.markdown(f"# **{nombre_completo.upper()}**")
@@ -344,30 +345,54 @@ if menu == "🔍 Consulta Detallada":
                             use_container_width=True
                         )
 
+                    # --- Fila 1 de Información ---
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         with st.container(border=True):
                             st.markdown("### 📌 Información Laboral")
                             st.markdown(f"**Dependencia:** {dependencia}")
-                            st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria'])}")
-                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo'])}")
-                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion'])}")
+                            st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria', 'sec'])}")
+                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo', 'puesto'])}")
+                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion', 'oficio'])}")
+                            st.markdown(f"**Líder / Apoyo:** {obtener_valor_campo(row, df_lideres.columns, ['lider', 'apoyo', 'rol'])}")
+
                     with col2:
                         with st.container(border=True):
                             st.markdown("### 📞 Contacto Directo")
-                            st.markdown(f"**Teléfono:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular'])}")
-                            correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email'])
+                            st.markdown(f"**Teléfono / Celular:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular', 'tel'])}")
+                            correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email', 'mail'])
                             st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
+                            st.markdown(f"**Redes Sociales:** {obtener_valor_campo(row, df_lideres.columns, ['redes', 'redes sociales', 'instagram', 'facebook'])}")
+
                     with col3:
                         with st.container(border=True):
                             st.markdown("### 📍 Ubicación y Fechas")
+                            st.markdown(f"**Municipio:** {obtener_valor_campo(row, df_lideres.columns, ['municipio', 'ciudad'])}")
                             st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'])}")
                             st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'])}")
                             st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns)}")
 
-                    url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf'], "Sin datos")
+                    # --- Fila 2: Proyección y Votación / Planillas ---
+                    col4, col5 = st.columns(2)
+                    with col4:
+                        with st.container(border=True):
+                            st.markdown("### 📌 Proyección y Notas")
+                            st.markdown(f"**Proyección:** {obtener_valor_campo(row, df_lideres.columns, ['proyeccion'])}")
+                            st.markdown(f"**Registros:** {obtener_valor_campo(row, df_lideres.columns, ['registros'])}")
+                            st.markdown(f"**Notas / Observaciones:** {obtener_valor_campo(row, df_lideres.columns, ['notas', 'observaciones', 'observacion'])}")
+
+                    with col5:
+                        with st.container(border=True):
+                            st.markdown("### 📋 Planillas y Registros")
+                            st.markdown(f"**No. Amigos:** {obtener_valor_campo(row, df_lideres.columns, ['amigos', 'no. amigos', 'nro amigos'], '0')}")
+                            st.markdown(f"**Municipio de Bello:** {obtener_valor_campo(row, df_lideres.columns, ['bello', 'municipio de bello'])}")
+                            st.markdown(f"**Otros Municipios:** {obtener_valor_campo(row, df_lideres.columns, ['otros municipios', 'otros'])}")
+
+                    # Botón de enlace PDF (si existe)
+                    url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf', 'link', 'planilla'], "Sin datos")
                     if url_pdf_val != "Sin datos" and url_pdf_val.startswith("http"):
                         st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=True)
+
                 st.markdown("---")
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro.")
