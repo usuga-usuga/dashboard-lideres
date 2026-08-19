@@ -6,7 +6,7 @@ import io
 import plotly.express as px
 import gspread
 
-# ReportLab para la exportación de PDF
+# ReportLab para exportar PDF
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -28,12 +28,12 @@ SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
 
 @st.cache_resource
 def conectar_google_sheets():
-    """Conecta con la API de Google Sheets a la hoja específica 'Base de datos Lideres'."""
+    """Conecta con la API de Google Sheets directamente a la pestaña 'Base de datos Lideres'."""
     try:
         credenciales = dict(st.secrets["gcp_service_account"])
         client = gspread.service_account_from_dict(credenciales)
         
-        # Abrir directamente la pestaña requerida
+        # Intentar conectar directamente a la pestaña deseada
         try:
             sheet = client.open_by_key(SHEET_ID).worksheet("Base de datos Lideres")
         except Exception:
@@ -45,7 +45,7 @@ def conectar_google_sheets():
         return None
 
 def cargar_datos():
-    """Lee y limpia la estructura de encabezados multinivel/combinados de la hoja."""
+    """Carga y reestructura las columnas eliminando nombres irrelevantes o genéricos (Columna_xxx)."""
     sheet = conectar_google_sheets()
     if sheet:
         try:
@@ -53,61 +53,67 @@ def cargar_datos():
             if not data or len(data) < 2:
                 return pd.DataFrame()
             
-            fila_1 = [c.strip() for c in data[0]]
-            fila_2 = [c.strip() for c in data[1]] if len(data) > 1 else []
+            fila_1 = [str(c).strip() for c in data[0]]
+            fila_2 = [str(c).strip() for c in data[1]] if len(data) > 1 else []
 
-            # Determinar si la primera fila corresponde a la categoría superior
+            # Determinar si la primera fila es un encabezado superior multinivel
             tiene_encabezado_doble = any("PROYECCI" in c.upper() or "PLANILLA" in c.upper() for c in fila_1)
 
-            headers_limpios = []
+            if tiene_encabezado_doble and len(data) >= 2:
+                # Tomar la Fila 2 como base principal de títulos
+                headers_crudos = fila_2
+                data_rows = data[2:]
+            else:
+                headers_crudos = fila_1
+                data_rows = data[1:]
+
+            # Mapeo manual y secuencial para dar nombres 100% claros si faltan
+            # (Ajusta o amplía según la secuencia exacta de tu hoja)
+            nombres_mapeados = []
             vistos = {}
 
-            if tiene_encabezado_doble and len(data) >= 2:
-                # Arrastrar categorías asignadas por celdas combinadas en Fila 1
-                cat_actual = ""
-                headers_base = []
-                for idx in range(len(fila_2)):
-                    h1 = fila_1[idx] if idx < len(fila_1) else ""
-                    h2 = fila_2[idx] if idx < len(fila_2) else ""
-                    
-                    if h1 != "":
-                        cat_actual = h1
-                        
-                    if h2 != "":
-                        headers_base.append(h2)
-                    elif cat_actual != "":
-                        headers_base.append(cat_actual)
-                    else:
-                        headers_base.append(f"Columna_{idx + 1}")
+            for idx, raw_h in enumerate(headers_crudos):
+                h_clean = raw_h.strip()
                 
-                filas_datos = data[2:]
-            else:
-                headers_base = [h if h else f"Columna_{i+1}" for i, h in enumerate(fila_1)]
-                filas_datos = data[1:]
+                # Si el encabezado está vacío o dice Columna_X, asignamos un nombre descriptivo
+                if not h_clean or h_clean.lower().startswith("columna_") or h_clean.lower().startswith("unnamed"):
+                    # Asignación por posición relativa común en estas bases de datos
+                    nombres_sugeridos = [
+                        "Nombres", "Apellidos", "Cédula / Identificación", "Dependencia", 
+                        "Secretaría", "Cargo Actual", "Profesión", "Teléfono / Celular", 
+                        "Correo Electrónico", "Comuna", "Barrio", "Día Cumpleaños", 
+                        "Mes Cumpleaños", "Proyección", "Registros", "Municipio", 
+                        "Notas", "No. Amigos", "Municipio / Bello", "Otros Municipios / Deptos", 
+                        "No está en Censo", "Cédula Errónea", "URL Planilla PDF"
+                    ]
+                    if idx < len(nombres_sugeridos):
+                        h_clean = nombres_sugeridos[idx]
+                    else:
+                        h_clean = f"Campo Adicional {idx + 1}"
 
-            # Resolver nombres de columnas duplicados
-            for idx, h in enumerate(headers_base):
-                nombre_clean = h.strip()
-                if nombre_clean in vistos:
-                    vistos[nombre_clean] += 1
-                    headers_limpios.append(f"{nombre_clean}_{vistos[nombre_clean]}")
+                # Resolver nombres duplicados limpiamente
+                if h_clean in vistos:
+                    vistos[h_clean] += 1
+                    nombre_final = f"{h_clean} ({vistos[h_clean]})"
                 else:
-                    vistos[nombre_clean] = 0
-                    headers_limpios.append(nombre_clean)
+                    vistos[h_clean] = 0
+                    nombre_final = h_clean
 
-            # Crear DataFrame alineando la longitud de las filas con las columnas
-            num_cols = len(headers_limpios)
-            filas_normalizadas = []
-            for row in filas_datos:
+                nombres_mapeados.append(nombre_final)
+
+            # Normalizar la cantidad de columnas por fila de datos
+            num_cols = len(nombres_mapeados)
+            filas_limpias = []
+            for row in data_rows:
                 if len(row) < num_cols:
                     row = row + [""] * (num_cols - len(row))
                 else:
                     row = row[:num_cols]
-                filas_normalizadas.append(row)
+                filas_limpias.append(row)
 
-            df = pd.DataFrame(filas_normalizadas, columns=headers_limpios).astype(str)
+            df = pd.DataFrame(filas_limpias, columns=nombres_mapeados).astype(str)
             
-            # Limpieza general de valores vacíos o con formato inválido
+            # Limpieza exhaustiva de valores vacíos o nulos
             for col in df.columns:
                 df[col] = df[col].str.replace(".0", "", regex=False)
                 df[col] = df[col].replace(["nan", "None", "<NA>", "null"], "")
@@ -115,7 +121,7 @@ def cargar_datos():
 
             return df
         except Exception as e:
-            st.error(f"Error al procesar la estructura de la hoja: {e}")
+            st.error(f"Error al procesar y ordenar la estructura de la hoja: {e}")
             return pd.DataFrame()
     return pd.DataFrame()
 
@@ -159,7 +165,7 @@ if not verificar_login():
     st.stop()
 
 # ------------------------------------------------------------------------------
-# ESTILO Y TEMA VISUAL MEJORADO (BOTONES HOMOGÉNEOS Y LEGIBLES)
+# ESTILO Y TEMA VISUAL MEJORADO
 # ------------------------------------------------------------------------------
 st.markdown("""
     <style>
@@ -252,8 +258,8 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     
     for col in df.columns:
         col_n = normalizar(col)
-        if "fecha de cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
-        elif "columna_13" in col_n or "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
+        if "cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
+        elif "mes" in col_n or col_n in ["month"]: col_mes = col
 
     for idx, row in df.iterrows():
         val_dia = str(row[col_dia]).strip() if col_dia else ""
@@ -415,15 +421,18 @@ if menu == "🔍 Consulta Detallada":
 
                     st.markdown("<br>", unsafe_allow_html=True)
 
+                    # AGRUPACIÓN ESTRICTA Y ORDENADA DE CAMPOS EN LAS 3 TARJETAS
                     info_laboral = []
                     contacto_directo = []
                     ubicacion_fechas = []
                     url_pdf_encontrado = None
 
+                    # Clasificadores avanzados
                     kw_laboral = ["dependencia", "secretaria", "cargo", "profesion", "empresa", "puesto", "sector", "labor", "contrato", "area", "proyeccion", "registro", "nota"]
                     kw_contacto = ["telefono", "celular", "correo", "email", "redes", "whatsapp", "contacto", "movil", "amigos", "link", "url"]
                     kw_ubicacion = ["comuna", "barrio", "municipio", "direccion", "fecha", "cumple", "nacimiento", "mes", "dia", "ubicacion", "zona", "bello", "deptos", "censo"]
 
+                    # Omitir de la lista principal los campos mostrados en el título superior
                     cols_omitir = [
                         col for col in df_lideres.columns 
                         if normalizar(col) in ["nombre", "nombres", "apellido", "apellidos", "cedula", "identificacion", "doc", "id"]
@@ -439,9 +448,10 @@ if menu == "🔍 Consulta Detallada":
 
                         col_norm = normalizar(col)
 
-                        if ("pdf" in col_norm or "url" in col_norm) and val.startswith("http"):
+                        if ("pdf" in col_norm or "url" in col_norm or "planilla" in col_norm) and val.startswith("http"):
                             url_pdf_encontrado = val
 
+                        # Clasificar dinámicamente según palabras clave
                         if any(kw in col_norm for kw in kw_laboral):
                             info_laboral.append((col, val))
                         elif any(kw in col_norm for kw in kw_contacto):
@@ -449,12 +459,14 @@ if menu == "🔍 Consulta Detallada":
                         elif any(kw in col_norm for kw in kw_ubicacion):
                             ubicacion_fechas.append((col, val))
                         else:
+                            # Repartir equilibradamente si hay datos adicionales
                             lens = [len(info_laboral), len(contacto_directo), len(ubicacion_fechas)]
                             min_idx = lens.index(min(lens))
                             if min_idx == 0: info_laboral.append((col, val))
                             elif min_idx == 1: contacto_directo.append((col, val))
                             else: ubicacion_fechas.append((col, val))
 
+                    # VISUALIZACIÓN EN ENTORNO TARJETA
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
@@ -570,7 +582,6 @@ elif menu == "✏️ Editar / Modificar Registros":
                     if btn_guardar_cambios:
                         sheet = conectar_google_sheets()
                         if sheet:
-                            # Contar la fila según si hubo encabezado doble o simple
                             num_fila_sheet = user_idx + 3
                             valores_actualizados = [str(nuevos_datos.get(col, "")) for col in cols]
                             
