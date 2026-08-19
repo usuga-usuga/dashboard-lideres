@@ -34,7 +34,7 @@ def cargar_datos():
         gc = gspread.service_account_from_dict(dict(st.secrets["gcp_service_account"]))
         
         # Reemplaza con tu ID activo de Google Sheets
-        SPREADSHEET_ID = "1_ptZSSlI5johqy-OHZlMDfRiHaUmsBWH" 
+        SPREADSHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA" 
         
         sh = gc.open_by_key(SPREADSHEET_ID)
         worksheet = sh.get_worksheet(0)
