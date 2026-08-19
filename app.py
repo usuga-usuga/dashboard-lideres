@@ -39,16 +39,36 @@ def conectar_google_sheets():
         return None
 
 def cargar_datos():
-    """Lee todos los registros de Google Sheets en un DataFrame."""
+    """Lee todos los registros de Google Sheets en un DataFrame de forma segura."""
     sheet = conectar_google_sheets()
     if sheet:
         try:
-            data = sheet.get_all_records()
-            df = pd.DataFrame(data).astype(str)
+            data = sheet.get_all_values()
+            if not data or len(data) < 1:
+                return pd.DataFrame()
+            
+            # Limpiar y resolver encabezados vacíos o duplicados
+            raw_headers = data[0]
+            headers_limpios = []
+            vistos = {}
+            
+            for idx, h in enumerate(raw_headers):
+                nombre_base = h.strip() if h.strip() else f"Columna_{idx + 1}"
+                if nombre_base in vistos:
+                    vistos[nombre_base] += 1
+                    headers_limpios.append(f"{nombre_base}_{vistos[nombre_base]}")
+                else:
+                    vistos[nombre_base] = 0
+                    headers_limpios.append(nombre_base)
+            
+            # Construir DataFrame con los datos restantes
+            df = pd.DataFrame(data[1:], columns=headers_limpios).astype(str)
             df = df.fillna("")
+            
             for col in df.columns:
                 df[col] = df[col].str.replace(".0", "", regex=False)
                 df[col] = df[col].replace(["nan", "None", "<NA>"], "")
+                
             return df
         except Exception as e:
             st.error(f"Error al procesar los datos de la hoja: {e}")
@@ -181,7 +201,7 @@ def obtener_fecha_cumpleanos_formateada(row, df_columns):
     for col in df_columns:
         col_n = normalizar(col)
         if "fecha de cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
-        elif "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
+        elif "columna_13" in col_n or "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
             
     val_dia = str(row[col_dia]).strip() if col_dia and col_dia in row else ""
     val_mes = str(row[col_mes]).strip() if col_mes and col_mes in row else ""
@@ -211,7 +231,7 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     for col in df.columns:
         col_n = normalizar(col)
         if "fecha de cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
-        elif "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
+        elif "columna_13" in col_n or "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
 
     for idx, row in df.iterrows():
         val_dia = str(row[col_dia]).strip() if col_dia else ""
