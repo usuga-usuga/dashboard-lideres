@@ -24,7 +24,7 @@ st.set_page_config(
 # ------------------------------------------------------------------------------
 # CONEXIÓN CON GOOGLE SHEETS VÍA GSPREAD
 # ------------------------------------------------------------------------------
-SHEET_ID = "1_ptZSSlI5johqy-OHZlMDfRiHaUmsBWH"
+SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
 
 @st.cache_resource
 def conectar_google_sheets():
