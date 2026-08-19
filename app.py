@@ -116,7 +116,7 @@ if not verificar_login():
     st.stop()
 
 # ------------------------------------------------------------------------------
-# ESTILO Y TEMA VISUAL MEJORADO (BOTONES COMPACTOS Y LEGIBLES)
+# ESTILO Y TEMA VISUAL MEJORADO (BOTONES HOMOGÉNEOS Y LEGIBLES)
 # ------------------------------------------------------------------------------
 st.markdown("""
     <style>
@@ -143,8 +143,10 @@ st.markdown("""
     [data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
     [data-testid="stMetricLabel"] p { color: #475569 !important; font-weight: 700 !important; }
     
-    /* ESTILIZACIÓN DE BOTONES MEJORADA */
-    div.stDownloadButton > button, div.stButton > button, a.stLinkButton {
+    /* ESTILIZACIÓN UNIFICADA DE BOTONES (INCLUIDO LINK_BUTTON) */
+    div.stDownloadButton > button, 
+    div.stButton > button, 
+    div[data-testid="stLinkButton"] > a {
         background-color: #1E3A8A !important;
         color: #FFFFFF !important;
         font-weight: 600 !important;
@@ -157,17 +159,24 @@ st.markdown("""
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
+        text-decoration: none !important;
         width: auto !important;
     }
     
-    div.stDownloadButton > button:hover, div.stButton > button:hover, a.stLinkButton:hover {
+    div.stDownloadButton > button:hover, 
+    div.stButton > button:hover, 
+    div[data-testid="stLinkButton"] > a:hover {
         background-color: #2563EB !important;
         color: #FFFFFF !important;
         box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.12) !important;
         transform: translateY(-1px);
+        text-decoration: none !important;
     }
     
-    div.stDownloadButton > button p, div.stButton > button p, a.stLinkButton p {
+    div.stDownloadButton > button p, 
+    div.stButton > button p, 
+    div[data-testid="stLinkButton"] > a p,
+    div[data-testid="stLinkButton"] > a span {
         color: #FFFFFF !important;
         margin: 0 !important;
     }
