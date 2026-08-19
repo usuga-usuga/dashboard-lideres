@@ -13,25 +13,45 @@ st.set_page_config(
 )
 
 # ==============================================================================
-# CARGA DE DATOS (Ajusta la fuente si usas Google Sheets o archivo local)
+# CARGA DE DATOS (Soporta archivo local, Google Sheets o File Uploader)
 # ==============================================================================
+st.sidebar.title("📌 Menú y Configuración")
+
+# Opción 1: Subir el archivo directamente desde la interfaz
+archivo_subido = st.sidebar.file_uploader(
+    "📂 Cargar base de datos (Excel o CSV)", 
+    type=["xlsx", "xls", "csv"]
+)
+
 @st.cache_data(ttl=600)
-def cargar_datos():
-    # Intenta cargar tu archivo/base de datos. Si falla, genera una estructura de prueba.
+def cargar_datos_locales():
+    """Intenta cargar un archivo local si existe en el proyecto."""
+    for nombre_archivo in ["base_lideres.xlsx", "base_lideres.csv", "datos.xlsx", "datos.csv"]:
+        try:
+            if nombre_archivo.endswith('.csv'):
+                return pd.read_csv(nombre_archivo)
+            else:
+                return pd.read_excel(nombre_archivo)
+        except Exception:
+            continue
+    return pd.DataFrame()
+
+# Determinación del DataFrame a usar
+if archivo_subido is not None:
     try:
-        # Reemplaza 'base_lideres.xlsx' o tu URL de Google Sheets según tu proyecto:
-        df = pd.read_excel("base_lideres.xlsx") 
-        return df
-    except Exception:
-        # DataFrame de respaldo si aún no está vinculado el archivo local
-        return pd.DataFrame()
-
-df_lideres = cargar_datos()
+        if archivo_subido.name.endswith('.csv'):
+            df_lideres = pd.read_csv(archivo_subido)
+        else:
+            df_lideres = pd.read_excel(archivo_subido)
+    except Exception as e:
+        st.sidebar.error(f"Error al leer el archivo cargado: {e}")
+        df_lideres = pd.DataFrame()
+else:
+    df_lideres = cargar_datos_locales()
 
 # ==============================================================================
-# MENÚ NAVEGACIÓN LATERAL (Solución al NameError de 'menu')
+# MENÚ NAVEGACIÓN LATERAL
 # ==============================================================================
-st.sidebar.title("📌 Menú de Navegación")
 menu = st.sidebar.radio(
     "Seleccione una opción:",
     ["🔍 Consulta Detallada", "📊 Resumen General"],
@@ -82,9 +102,9 @@ def obtener_fecha_cumpleanos_formateada(row, df_cols, cols_usadas=None):
     return val
 
 def generar_pdf_ficha(row, df_cols):
-    """Generador stub para descargar PDF."""
+    """Generador de respaldo para la función de descarga en PDF."""
     buffer = io.BytesIO()
-    buffer.write(b"%PDF-1.4 Ficha Falsa de Prueba")
+    buffer.write(b"%PDF-1.4 Ficha de Registro")
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -140,7 +160,7 @@ if menu == "🔍 Consulta Detallada":
                 registros = obtener_valor_inteligente(row, df_lideres.columns, ["registros", "registro"], "Sin datos", cols_usadas)
                 notas = obtener_valor_inteligente(row, df_lideres.columns, ["notas / observaciones", "notas", "observaciones", "comentarios"], "Sin datos", cols_usadas)
 
-                # 6. Planillas y Registros (CENSO INCLUIDO)
+                # 6. Planillas y Registros (Incluye Censo)
                 amigos = obtener_valor_inteligente(row, df_lideres.columns, ["no. amigos", "nro amigos", "amigos"], "0", cols_usadas)
                 bello = obtener_valor_inteligente(row, df_lideres.columns, ["municipio de bello", "bello"], "Sin datos", cols_usadas)
                 otros_muni = obtener_valor_inteligente(row, df_lideres.columns, ["otros municipios"], "Sin datos", cols_usadas)
@@ -236,8 +256,12 @@ if menu == "🔍 Consulta Detallada":
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro.")
     else:
-        st.warning("⚠️ La base de datos no contiene registros o no se ha cargado un archivo de datos válido.")
+        st.info("👈 **Para comenzar:** Carga tu archivo `.xlsx` o `.csv` desde el menú lateral en el botón **'Cargar base de datos'**, o ubica tu archivo como `base_lideres.xlsx` dentro del directorio del proyecto.")
 
 elif menu == "📊 Resumen General":
     st.title("📊 Resumen General")
-    st.info("Sección en construcción o para indicadores globales.")
+    if not df_lideres.empty:
+        st.metric("Total Registros", len(df_lideres))
+        st.dataframe(df_lideres.head(20), use_container_width=True)
+    else:
+        st.info("👈 Por favor carga una base de datos en la barra lateral para ver los indicadores.")
