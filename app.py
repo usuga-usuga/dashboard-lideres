@@ -460,7 +460,7 @@ elif menu == "✏️ Editar / Modificar Registros":
                             num_fila_sheet = user_idx + 2
                             valores_actualizados = [str(nuevos_datos.get(col, "")) for col in cols]
                             
-                            sheet.update(f"A{num_fila_sheet}", [valores_actualizados])
+                            sheet.update(range_name=f"A{num_fila_sheet}", values=[valores_actualizados])
                             
                             for col_name, val_nuevo in nuevos_datos.items():
                                 st.session_state.df_lideres.at[user_idx, col_name] = val_nuevo
@@ -475,7 +475,7 @@ elif menu == "✏️ Editar / Modificar Registros":
 # ==============================================================================
 elif menu == "📋 Base de Datos Completa (Edición Directa)":
     st.subheader("📋 Base de Datos Completa (Edición Directa Tipo Excel)")
-    st.caption("✏️ Puedes modificar celdas, agregar nuevas filas (+) o eliminar registros (basura/delete) directamente en la tabla. Haz clic en 'Guardar Cambios' para sincronizar con Google Sheets.")
+    st.caption("✏️ Puedes modificar celdas, agregar nuevas filas (+) o eliminar registros directamente en la tabla. Haz clic en 'Guardar Cambios' para sincronizar con Google Sheets.")
     
     if not df_lideres.empty:
         # Filtro rápido
@@ -512,13 +512,13 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
                         encabezados = df_para_guardar.columns.tolist()
                         filas = df_para_guardar.values.tolist()
                         
-                        # 3. Reescribir tabla completa
-                        sheet.update("A1", [encabezados] + filas)
+                        # 3. Reescribir tabla completa con parámetros nombrados compatibles
+                        sheet.update(range_name="A1", values=[encabezados] + filas)
                         
                         # 4. Actualizar session state local
                         st.session_state.df_lideres = df_para_guardar
                         
-                        st.success("✅ ¡Todos los cambios (ediciones, filas agregadas o eliminadas) se guardaron en Google Sheets!")
+                        st.success("✅ ¡Todos los cambios se guardaron exitosamente en Google Sheets!")
                         st.rerun()
 
         with col_btn2:
