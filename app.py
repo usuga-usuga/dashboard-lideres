@@ -28,50 +28,94 @@ SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
 
 @st.cache_resource
 def conectar_google_sheets():
-    """Conecta con la API de Google Sheets usando las credenciales de Streamlit Secrets."""
+    """Conecta con la API de Google Sheets a la hoja específica 'Base de datos Lideres'."""
     try:
         credenciales = dict(st.secrets["gcp_service_account"])
         client = gspread.service_account_from_dict(credenciales)
-        sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+        
+        # Abrir directamente la pestaña requerida
+        try:
+            sheet = client.open_by_key(SHEET_ID).worksheet("Base de datos Lideres")
+        except Exception:
+            sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+            
         return sheet
     except Exception as e:
         st.error(f"⚠️ Error al conectar con Google Sheets API: {e}")
         return None
 
 def cargar_datos():
-    """Lee todos los registros de Google Sheets en un DataFrame de forma segura."""
+    """Lee y limpia la estructura de encabezados multinivel/combinados de la hoja."""
     sheet = conectar_google_sheets()
     if sheet:
         try:
             data = sheet.get_all_values()
-            if not data or len(data) < 1:
+            if not data or len(data) < 2:
                 return pd.DataFrame()
             
-            # Limpiar y resolver encabezados vacíos o duplicados
-            raw_headers = data[0]
+            fila_1 = [c.strip() for c in data[0]]
+            fila_2 = [c.strip() for c in data[1]] if len(data) > 1 else []
+
+            # Determinar si la primera fila corresponde a la categoría superior
+            tiene_encabezado_doble = any("PROYECCI" in c.upper() or "PLANILLA" in c.upper() for c in fila_1)
+
             headers_limpios = []
             vistos = {}
-            
-            for idx, h in enumerate(raw_headers):
-                nombre_base = h.strip() if h.strip() else f"Columna_{idx + 1}"
-                if nombre_base in vistos:
-                    vistos[nombre_base] += 1
-                    headers_limpios.append(f"{nombre_base}_{vistos[nombre_base]}")
+
+            if tiene_encabezado_doble and len(data) >= 2:
+                # Arrastrar categorías asignadas por celdas combinadas en Fila 1
+                cat_actual = ""
+                headers_base = []
+                for idx in range(len(fila_2)):
+                    h1 = fila_1[idx] if idx < len(fila_1) else ""
+                    h2 = fila_2[idx] if idx < len(fila_2) else ""
+                    
+                    if h1 != "":
+                        cat_actual = h1
+                        
+                    if h2 != "":
+                        headers_base.append(h2)
+                    elif cat_actual != "":
+                        headers_base.append(cat_actual)
+                    else:
+                        headers_base.append(f"Columna_{idx + 1}")
+                
+                filas_datos = data[2:]
+            else:
+                headers_base = [h if h else f"Columna_{i+1}" for i, h in enumerate(fila_1)]
+                filas_datos = data[1:]
+
+            # Resolver nombres de columnas duplicados
+            for idx, h in enumerate(headers_base):
+                nombre_clean = h.strip()
+                if nombre_clean in vistos:
+                    vistos[nombre_clean] += 1
+                    headers_limpios.append(f"{nombre_clean}_{vistos[nombre_clean]}")
                 else:
-                    vistos[nombre_base] = 0
-                    headers_limpios.append(nombre_base)
+                    vistos[nombre_clean] = 0
+                    headers_limpios.append(nombre_clean)
+
+            # Crear DataFrame alineando la longitud de las filas con las columnas
+            num_cols = len(headers_limpios)
+            filas_normalizadas = []
+            for row in filas_datos:
+                if len(row) < num_cols:
+                    row = row + [""] * (num_cols - len(row))
+                else:
+                    row = row[:num_cols]
+                filas_normalizadas.append(row)
+
+            df = pd.DataFrame(filas_normalizadas, columns=headers_limpios).astype(str)
             
-            # Construir DataFrame con los datos restantes
-            df = pd.DataFrame(data[1:], columns=headers_limpios).astype(str)
-            df = df.fillna("")
-            
+            # Limpieza general de valores vacíos o con formato inválido
             for col in df.columns:
                 df[col] = df[col].str.replace(".0", "", regex=False)
-                df[col] = df[col].replace(["nan", "None", "<NA>"], "")
-                
+                df[col] = df[col].replace(["nan", "None", "<NA>", "null"], "")
+                df[col] = df[col].str.strip()
+
             return df
         except Exception as e:
-            st.error(f"Error al procesar los datos de la hoja: {e}")
+            st.error(f"Error al procesar la estructura de la hoja: {e}")
             return pd.DataFrame()
     return pd.DataFrame()
 
@@ -84,7 +128,6 @@ df_lideres = st.session_state.df_lideres
 # 1. SISTEMA DE LOGIN Y AUTENTICACIÓN
 # ------------------------------------------------------------------------------
 def verificar_login():
-    """Muestra la pantalla de inicio de sesión si el usuario no se ha autenticado."""
     if st.session_state.get("autenticado", False):
         return True
 
@@ -124,13 +167,11 @@ st.markdown("""
     .stApp p, .stApp span, .stApp label, .stApp div, .stApp caption, .stMarkdown { color: #1E293B !important; }
     h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important; }
     
-    /* Sidebar */
     [data-testid="stSidebar"] { background-color: #0F172A !important; }
     [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #FFFFFF !important; }
     [data-testid="stSidebar"] .stButton > button { background-color: #1E293B !important; color: #FFFFFF !important; border: 1px solid #334155 !important; border-radius: 8px !important; }
     [data-testid="stSidebar"] .stButton > button:hover { background-color: #F59E0B !important; border-color: #D97706 !important; color: #FFFFFF !important; }
     
-    /* Contenedores y Tarjetas */
     [data-testid="stVerticalBlock"] > div[data-testid="stBlock"], div[data-testid="stForm"], .stCard { 
         background-color: #FFFFFF !important; 
         border-radius: 12px !important; 
@@ -139,11 +180,9 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.03) !important; 
     }
     
-    /* Métricas */
     [data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
     [data-testid="stMetricLabel"] p { color: #475569 !important; font-weight: 700 !important; }
     
-    /* ESTILIZACIÓN UNIFICADA DE BOTONES (INCLUIDO LINK_BUTTON) */
     div.stDownloadButton > button, 
     div.stButton > button, 
     div[data-testid="stLinkButton"] > a {
@@ -204,32 +243,6 @@ def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
                 if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
                     return val
     return default
-
-def obtener_fecha_cumpleanos_formateada(row, df_columns):
-    col_dia, col_mes = None, None
-    for col in df_columns:
-        col_n = normalizar(col)
-        if "fecha de cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
-        elif "columna_13" in col_n or "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
-            
-    val_dia = str(row[col_dia]).strip() if col_dia and col_dia in row else ""
-    val_mes = str(row[col_mes]).strip() if col_mes and col_mes in row else ""
-    
-    if "/" in val_dia or "-" in val_dia:
-        partes = val_dia.replace("-", "/").split("/")
-        if len(partes) >= 2:
-            try:
-                d, m = int(partes[0]), int(partes[1])
-                if 1 <= d <= 31 and 1 <= m <= 12:
-                    return f"{d} de {NOMBRES_MESES[m]}"
-            except ValueError: pass
-
-    if val_dia.isdigit() and val_mes.isdigit():
-        d, m = int(val_dia), int(val_mes)
-        if 1 <= d <= 31 and 1 <= m <= 12:
-            return f"{d} de {NOMBRES_MESES[m]}"
-            
-    return val_dia or "Sin datos"
 
 def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     if df.empty: return []
@@ -386,7 +399,6 @@ if menu == "🔍 Consulta Detallada":
                 dependencia = obtener_valor_campo(row, df_lideres.columns, ["dependencia", "area", "sector"])
 
                 with st.container(border=True):
-                    # CABECERA CON ALINEACIÓN PROPORCIONAL
                     col_header1, col_header2 = st.columns([4, 1.2])
                     with col_header1:
                         st.markdown(f"## **{nombre_completo.upper()}**")
@@ -403,18 +415,15 @@ if menu == "🔍 Consulta Detallada":
 
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                    # CLASIFICACIÓN DINÁMICA DE TODAS LAS COLUMNAS EN LOS TRES BLOQUES DE LA TARJETA
                     info_laboral = []
                     contacto_directo = []
                     ubicacion_fechas = []
                     url_pdf_encontrado = None
 
-                    # Palabras clave para clasificar cada campo
-                    kw_laboral = ["dependencia", "secretaria", "cargo", "profesion", "empresa", "puesto", "sector", "labor", "contrato", "area"]
+                    kw_laboral = ["dependencia", "secretaria", "cargo", "profesion", "empresa", "puesto", "sector", "labor", "contrato", "area", "proyeccion", "registro", "nota"]
                     kw_contacto = ["telefono", "celular", "correo", "email", "redes", "whatsapp", "contacto", "movil", "amigos", "link", "url"]
-                    kw_ubicacion = ["comuna", "barrio", "municipio", "direccion", "fecha", "cumple", "nacimiento", "mes", "dia", "ubicacion", "zona"]
+                    kw_ubicacion = ["comuna", "barrio", "municipio", "direccion", "fecha", "cumple", "nacimiento", "mes", "dia", "ubicacion", "zona", "bello", "deptos", "censo"]
 
-                    # Omitir de la lista interna los campos que ya se muestran en la cabecera del usuario
                     cols_omitir = [
                         col for col in df_lideres.columns 
                         if normalizar(col) in ["nombre", "nombres", "apellido", "apellidos", "cedula", "identificacion", "doc", "id"]
@@ -430,11 +439,9 @@ if menu == "🔍 Consulta Detallada":
 
                         col_norm = normalizar(col)
 
-                        # Detectar URL de planilla PDF para el botón inferior
                         if ("pdf" in col_norm or "url" in col_norm) and val.startswith("http"):
                             url_pdf_encontrado = val
 
-                        # Clasificación dinámica por nombre de columna
                         if any(kw in col_norm for kw in kw_laboral):
                             info_laboral.append((col, val))
                         elif any(kw in col_norm for kw in kw_contacto):
@@ -442,14 +449,12 @@ if menu == "🔍 Consulta Detallada":
                         elif any(kw in col_norm for kw in kw_ubicacion):
                             ubicacion_fechas.append((col, val))
                         else:
-                            # Distribución equilibrada para campos adicionales no clasificados
                             lens = [len(info_laboral), len(contacto_directo), len(ubicacion_fechas)]
                             min_idx = lens.index(min(lens))
                             if min_idx == 0: info_laboral.append((col, val))
                             elif min_idx == 1: contacto_directo.append((col, val))
                             else: ubicacion_fechas.append((col, val))
 
-                    # RENDERING EN 3 COLUMNAS CON ESTILO TARJETA
                     col1, col2, col3 = st.columns(3)
 
                     with col1:
@@ -565,7 +570,8 @@ elif menu == "✏️ Editar / Modificar Registros":
                     if btn_guardar_cambios:
                         sheet = conectar_google_sheets()
                         if sheet:
-                            num_fila_sheet = user_idx + 2
+                            # Contar la fila según si hubo encabezado doble o simple
+                            num_fila_sheet = user_idx + 3
                             valores_actualizados = [str(nuevos_datos.get(col, "")) for col in cols]
                             
                             sheet.update(f"A{num_fila_sheet}", [valores_actualizados])
