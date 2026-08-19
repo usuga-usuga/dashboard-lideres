@@ -55,7 +55,6 @@ def cargar_datos():
             return pd.DataFrame()
     return pd.DataFrame()
 
-# Guardar o recargar la base de datos en Session State
 if "df_lideres" not in st.session_state or st.session_state.df_lideres.empty:
     st.session_state.df_lideres = cargar_datos()
 
@@ -97,25 +96,63 @@ if not verificar_login():
     st.stop()
 
 # ------------------------------------------------------------------------------
-# ESTILO Y TEMA VISUAL CON ALTO CONTRASTE
+# ESTILO Y TEMA VISUAL MEJORADO (BOTONES COMPACTOS Y LEGIBLES)
 # ------------------------------------------------------------------------------
 st.markdown("""
     <style>
-    .stApp { background-color: #F3F4F8 !important; }
+    .stApp { background-color: #F8FAFC !important; }
     .stApp p, .stApp span, .stApp label, .stApp div, .stApp caption, .stMarkdown { color: #1E293B !important; }
     h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important; }
-    [data-testid="stSidebar"] { background-color: #11223F !important; }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] { background-color: #0F172A !important; }
     [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #FFFFFF !important; }
-    [data-testid="stSidebar"] .stButton > button { background-color: #1A365D !important; color: #FFFFFF !important; border: 1px solid #2B6CB0 !important; border-radius: 8px !important; }
+    [data-testid="stSidebar"] .stButton > button { background-color: #1E293B !important; color: #FFFFFF !important; border: 1px solid #334155 !important; border-radius: 8px !important; }
     [data-testid="stSidebar"] .stButton > button:hover { background-color: #F59E0B !important; border-color: #D97706 !important; color: #FFFFFF !important; }
-    [data-testid="stVerticalBlock"] > div[data-testid="stBlock"], div[data-testid="stForm"], .stCard { background-color: #FFFFFF !important; border-radius: 12px !important; padding: 16px !important; border: 1px solid #E2E8F0 !important; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05) !important; }
+    
+    /* Contenedores y Tarjetas */
+    [data-testid="stVerticalBlock"] > div[data-testid="stBlock"], div[data-testid="stForm"], .stCard { 
+        background-color: #FFFFFF !important; 
+        border-radius: 12px !important; 
+        padding: 18px !important; 
+        border: 1px solid #E2E8F0 !important; 
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.03) !important; 
+    }
+    
+    /* Métricas */
     [data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
-    [data-testid="stMetricLabel"] p { color: #334155 !important; font-weight: 700 !important; }
-    .stButton > button { background-color: #F59E0B !important; color: #FFFFFF !important; font-weight: 700 !important; border-radius: 8px !important; border: none !important; }
-    .stButton > button:hover { background-color: #D97706 !important; color: #FFFFFF !important; }
-    .stDownloadButton > button { background-color: #11223F !important; color: #FFFFFF !important; font-weight: 600 !important; border-radius: 8px !important; }
-    .stDownloadButton > button:hover { background-color: #F59E0B !important; color: #FFFFFF !important; }
-    input { color: #0F172A !important; background-color: #F8FAFC !important; border: 1px solid #CBD5E1 !important; }
+    [data-testid="stMetricLabel"] p { color: #475569 !important; font-weight: 700 !important; }
+    
+    /* ESTILIZACIÓN DE BOTONES MEJORADA */
+    div.stDownloadButton > button, div.stButton > button, a.stLinkButton {
+        background-color: #1E3A8A !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 8px 16px !important;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.08) !important;
+        transition: all 0.2s ease-in-out !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+    }
+    
+    div.stDownloadButton > button:hover, div.stButton > button:hover, a.stLinkButton:hover {
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.12) !important;
+        transform: translateY(-1px);
+    }
+    
+    div.stDownloadButton > button p, div.stButton > button p, a.stLinkButton p {
+        color: #FFFFFF !important;
+        margin: 0 !important;
+    }
+
+    input { color: #0F172A !important; background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -330,9 +367,10 @@ if menu == "🔍 Consulta Detallada":
                 dependencia = obtener_valor_campo(row, df_lideres.columns, ["dependencia", "area", "sector"])
 
                 with st.container(border=True):
-                    col_header1, col_header2 = st.columns([3, 1])
+                    # CABECERA CON ALINEACIÓN PROPORCIONAL
+                    col_header1, col_header2 = st.columns([4, 1.2])
                     with col_header1:
-                        st.markdown(f"# **{nombre_completo.upper()}**")
+                        st.markdown(f"## **{nombre_completo.upper()}**")
                         st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
                     with col_header2:
                         pdf_file = generar_pdf_ficha(row, df_lideres.columns)
@@ -341,33 +379,36 @@ if menu == "🔍 Consulta Detallada":
                             data=pdf_file,
                             file_name=f"Ficha_{cedula}.pdf",
                             mime="application/pdf",
-                            use_container_width=True
+                            use_container_width=False
                         )
+
+                    st.markdown("<br>", unsafe_allow_html=True)
 
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        with st.container(border=True):
-                            st.markdown("### 📌 Información Laboral")
-                            st.markdown(f"**Dependencia:** {dependencia}")
-                            st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria'])}")
-                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo'])}")
-                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion'])}")
+                        st.markdown("### 📌 Información Laboral")
+                        st.markdown(f"**Dependencia:** {dependencia}")
+                        st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria'])}")
+                        st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo'])}")
+                        st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion'])}")
+
                     with col2:
-                        with st.container(border=True):
-                            st.markdown("### 📞 Contacto Directo")
-                            st.markdown(f"**Teléfono:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular'])}")
-                            correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email'])
-                            st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
+                        st.markdown("### 📞 Contacto Directo")
+                        st.markdown(f"**Teléfono:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular'])}")
+                        correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email'])
+                        st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
+
                     with col3:
-                        with st.container(border=True):
-                            st.markdown("### 📍 Ubicación y Fechas")
-                            st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'])}")
-                            st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'])}")
-                            st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns)}")
+                        st.markdown("### 📍 Ubicación y Fechas")
+                        st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'])}")
+                        st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'])}")
+                        st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns)}")
 
                     url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf'], "Sin datos")
                     if url_pdf_val != "Sin datos" and url_pdf_val.startswith("http"):
-                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=False)
+
                 st.markdown("---")
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro.")
@@ -391,7 +432,7 @@ elif menu == "📈 Panel de Control Ejecutivos":
         st.markdown("---")
 
 # ==============================================================================
-# MÓDULO 3: REGISTRO DE NUEVO USUARIO (CON ESCRITURA EN GOOGLE SHEETS)
+# MÓDULO 3: REGISTRO DE NUEVO USUARIO
 # ==============================================================================
 elif menu == "➕ Registro de Nuevo Usuario":
     st.subheader("➕ Registro de Nuevo Usuario")
@@ -422,7 +463,7 @@ elif menu == "➕ Registro de Nuevo Usuario":
                     st.rerun()
 
 # ==============================================================================
-# MÓDULO 4: EDITAR / MODIFICAR REGISTROS (FORMULARIO INDIVIDUAL)
+# MÓDULO 4: EDITAR / MODIFICAR REGISTROS
 # ==============================================================================
 elif menu == "✏️ Editar / Modificar Registros":
     st.title("✏️ Edición Formulario Individual de Usuarios")
@@ -471,14 +512,13 @@ elif menu == "✏️ Editar / Modificar Registros":
                 st.warning("⚠️ No se encontró ningún registro con la cédula ingresada.")
 
 # ==============================================================================
-# MÓDULO 5: BASE DE DATOS COMPLETA (EDICIÓN DIRECTA TIPO EXCEL + GUARDAR CAMBIOS)
+# MÓDULO 5: BASE DE DATOS COMPLETA
 # ==============================================================================
 elif menu == "📋 Base de Datos Completa (Edición Directa)":
     st.subheader("📋 Base de Datos Completa (Edición Directa Tipo Excel)")
-    st.caption("✏️ Puedes modificar celdas, agregar nuevas filas (+) o eliminar registros (basura/delete) directamente en la tabla. Haz clic en 'Guardar Cambios' para sincronizar con Google Sheets.")
+    st.caption("✏️ Puedes modificar celdas, agregar nuevas filas (+) o eliminar registros directamente en la tabla.")
     
     if not df_lideres.empty:
-        # Filtro rápido
         filtro_tabla = st.text_input("🔎 Filtrar registros en la vista general:", placeholder="Escriba para buscar...")
         
         df_editable = df_lideres.copy()
@@ -486,10 +526,9 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
             mask = df_editable.astype(str).apply(lambda row: row.str.contains(filtro_tabla.strip(), case=False, na=False)).any(axis=1)
             df_editable = df_editable[mask]
 
-        # Tabla Interactiva editable
         df_modificado = st.data_editor(
             df_editable,
-            num_rows="dynamic",        # Permite agregar (+) y eliminar filas
+            num_rows="dynamic",
             use_container_width=True,
             hide_index=True,
             key="editor_tabla_lideres"
@@ -498,38 +537,32 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
         col_btn1, col_btn2 = st.columns([2, 2])
         
         with col_btn1:
-            # BOTÓN DE GUARDADO MASIVO A GOOGLE SHEETS
-            if st.button("💾 Guardar Cambios en Google Sheets", use_container_width=True):
+            if st.button("💾 Guardar Cambios en Google Sheets", use_container_width=False):
                 with st.spinner("Guardando y actualizando base de datos en Google Sheets..."):
                     sheet = conectar_google_sheets()
                     if sheet:
                         df_para_guardar = df_modificado.fillna("").astype(str)
                         
-                        # 1. Limpiar hoja en Google Sheets
                         sheet.clear()
                         
-                        # 2. Reconstruir lista de datos
                         encabezados = df_para_guardar.columns.tolist()
                         filas = df_para_guardar.values.tolist()
                         
-                        # 3. Reescribir tabla completa
                         sheet.update("A1", [encabezados] + filas)
                         
-                        # 4. Actualizar session state local
                         st.session_state.df_lideres = df_para_guardar
                         
-                        st.success("✅ ¡Todos los cambios (ediciones, filas agregadas o eliminadas) se guardaron en Google Sheets!")
+                        st.success("✅ ¡Todos los cambios se guardaron en Google Sheets!")
                         st.rerun()
 
         with col_btn2:
-            # BOTÓN DE DESCARGA EN CSV
             csv_data = df_modificado.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Descargar Vista Actual en CSV",
                 data=csv_data,
                 file_name=f"Base_Lideres_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
-                use_container_width=True
+                use_container_width=False
             )
     else:
         st.info("No hay datos cargados para mostrar.")
