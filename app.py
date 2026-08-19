@@ -305,7 +305,7 @@ menu = st.sidebar.radio(
 )
 
 # ==============================================================================
-# MÓDULO 1: CONSULTA DETALLADA
+# MÓDULO 1: CONSULTA DETALLADA (CORREGIDO Y ALINEADO CON CAMPOS EXACTOS)
 # ==============================================================================
 if menu == "🔍 Consulta Detallada":
     st.subheader("🔍 Consulta Detallada de Líderes")
@@ -320,22 +320,36 @@ if menu == "🔍 Consulta Detallada":
 
         if not resultado.empty:
             st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
+            
+            # Helper estricto para extraer datos garantizando el campo correcto
+            def extraer_campo_estricto(row, posibles_nombres, default="Sin datos", cols_usadas=None):
+                for col in df_lideres.columns:
+                    col_limpia = normalizar(col)
+                    for nombre in posibles_nombres:
+                        if normalizar(nombre) == col_limpia:
+                            if cols_usadas is not None:
+                                cols_usadas.add(col)
+                            val = str(row[col]).strip()
+                            if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
+                                return val
+                return default
+
             for idx, row in resultado.iterrows():
                 cols_usadas = set()
                 
-                # Campos principales con búsqueda amplia
-                nombres = obtener_valor_campo(row, df_lideres.columns, ["nombres", "nombre"], "", cols_usadas)
-                apellidos = obtener_valor_campo(row, df_lideres.columns, ["apellidos", "apellido"], "", cols_usadas)
+                # 1. Extracción de Identificación y Nombres
+                cedula = extraer_campo_estricto(row, ["Cedula", "Identificacion", "ID", "Documento"], "Sin datos", cols_usadas)
+                nombres = extraer_campo_estricto(row, ["Nombres", "Nombre"], "", cols_usadas)
+                apellidos = extraer_campo_estricto(row, ["Apellidos", "Apellido"], "", cols_usadas)
                 nombre_completo = f"{nombres} {apellidos}".strip() or "NOMBRE NO REGISTRADO"
-                cedula = obtener_valor_campo(row, df_lideres.columns, ["identificacion", "cedula", "doc", "id"], "Sin datos", cols_usadas)
-                dependencia = obtener_valor_campo(row, df_lideres.columns, ["dependencia", "area", "sector"], "Sin datos", cols_usadas)
 
                 with st.container(border=True):
                     # Cabecera
                     col_header1, col_header2 = st.columns([3, 1])
                     with col_header1:
                         st.markdown(f"# **{nombre_completo.upper()}**")
-                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
+                        dependencia_header = extraer_campo_estricto(row, ["Dependencia"], "Sin datos", cols_usadas)
+                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia_header}")
                     with col_header2:
                         pdf_file = generar_pdf_ficha(row, df_lideres.columns)
                         st.download_button(
@@ -346,88 +360,86 @@ if menu == "🔍 Consulta Detallada":
                             use_container_width=True
                         )
 
-                    # --- Fila 1 de Información ---
+                    # --- Fila 1: Información Laboral, Contacto y Ubicación ---
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         with st.container(border=True):
                             st.markdown("### 📌 Información Laboral")
-                            st.markdown(f"**Dependencia:** {dependencia}")
-                            st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria', 'sec'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo', 'puesto', 'ocupacion'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion', 'oficio', 'titulo'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Líder / Apoyo:** {obtener_valor_campo(row, df_lideres.columns, ['lider', 'apoyo', 'rol', 'lider / apoyo'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Dependencia:** {dependencia_header}")
+                            st.markdown(f"**Secretaría:** {extraer_campo_estricto(row, ['Secretaría', 'Secretaria'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Cargo Actual:** {extraer_campo_estricto(row, ['Cargo Actual', 'Cargo'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Profesión:** {extraer_campo_estricto(row, ['Profesión', 'Profesion'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Líder / Apoyo:** {extraer_campo_estricto(row, ['Líder / Apoyo', 'Lider / Apoyo', 'Lider', 'Apoyo'], 'Sin datos', cols_usadas)}")
 
                     with col2:
                         with st.container(border=True):
                             st.markdown("### 📞 Contacto Directo")
-                            st.markdown(f"**Teléfono / Celular:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular', 'tel', 'movil'], 'Sin datos', cols_usadas)}")
-                            correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email', 'mail'], 'Sin datos', cols_usadas)
+                            st.markdown(f"**Teléfono / Celular:** {extraer_campo_estricto(row, ['Teléfono / Celular', 'Telefono / Celular', 'Telefono', 'Celular'], 'Sin datos', cols_usadas)}")
+                            correo = extraer_campo_estricto(row, ['Correo', 'Correo Electrónico', 'Email'], 'Sin datos', cols_usadas)
                             st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
-                            st.markdown(f"**Redes Sociales:** {obtener_valor_campo(row, df_lideres.columns, ['redes', 'redes sociales', 'instagram', 'facebook', 'social'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Redes Sociales:** {extraer_campo_estricto(row, ['Redes Sociales', 'Redes'], 'Sin datos', cols_usadas)}")
 
                     with col3:
                         with st.container(border=True):
                             st.markdown("### 📍 Ubicación y Fechas")
-                            st.markdown(f"**Municipio:** {obtener_valor_campo(row, df_lideres.columns, ['municipio', 'ciudad'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna', 'zona'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio', 'sector'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Municipio:** {extraer_campo_estricto(row, ['Municipio'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Comuna:** {extraer_campo_estricto(row, ['Comuna'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Barrio:** {extraer_campo_estricto(row, ['Barrio'], 'Sin datos', cols_usadas)}")
                             st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns, cols_usadas)}")
 
-                    # --- Fila 2: Proyección, Notas y Planillas ---
+                    # --- Fila 2: Proyección y Notas / Planillas ---
                     col4, col5 = st.columns(2)
                     with col4:
                         with st.container(border=True):
                             st.markdown("### 📌 Proyección y Notas")
-                            st.markdown(f"**Proyección:** {obtener_valor_campo(row, df_lideres.columns, ['proyeccion', 'meta', 'objetivo'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Registros:** {obtener_valor_campo(row, df_lideres.columns, ['registros', 'conteo', 'avance'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Notas / Observaciones:** {obtener_valor_campo(row, df_lideres.columns, ['notas', 'observaciones', 'observacion', 'comentario', 'detalle', 'notas / observaciones'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Proyección:** {extraer_campo_estricto(row, ['Proyección', 'Proyeccion'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Registros:** {extraer_campo_estricto(row, ['Registros', 'Registro'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Notas / Observaciones:** {extraer_campo_estricto(row, ['Notas / Observaciones', 'Notas', 'Observaciones'], 'Sin datos', cols_usadas)}")
 
                     with col5:
                         with st.container(border=True):
                             st.markdown("### 📋 Planillas y Registros")
-                            st.markdown(f"**No. Amigos:** {obtener_valor_campo(row, df_lideres.columns, ['amigos', 'no. amigos', 'nro amigos', 'amigos inscritos'], '0', cols_usadas)}")
-                            st.markdown(f"**Municipio de Bello:** {obtener_valor_campo(row, df_lideres.columns, ['bello', 'municipio de bello'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Otros Municipios:** {obtener_valor_campo(row, df_lideres.columns, ['otros municipios', 'otros', 'otras ciudades'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**No. Amigos:** {extraer_campo_estricto(row, ['No. Amigos', 'Nro Amigos', 'Amigos'], '0', cols_usadas)}")
+                            st.markdown(f"**Municipio de Bello:** {extraer_campo_estricto(row, ['Municipio de Bello', 'Bello'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Otros Municipios:** {extraer_campo_estricto(row, ['Otros Municipios'], 'Sin datos', cols_usadas)}")
 
-                    # --- Fila 3: Captura Visual Completa de Columnas Restantes ---
+                    # --- Fila 3: Información Restante (Mismo estilo visual) ---
+                    # Identifica cualquier columna del Excel que no haya sido mapeada en los bloques anteriores
                     cols_restantes = [c for c in df_lideres.columns if c not in cols_usadas and normalizar(c) not in ["url_pdf", "pdf", "link", "planilla"]]
                     
-                    if cols_restantes:
-                        # Extraer cualquier columna con datos válidos
-                        campos_adicionales = []
-                        for col in cols_restantes:
-                            val = str(row[col]).strip()
-                            if val and val.lower() not in ["nan", "none", "<na>", "null", ""]:
-                                campos_adicionales.append((col, val))
-                        
-                        if campos_adicionales:
-                            mitad = (len(campos_adicionales) + 1) // 2
-                            bloque1 = campos_adicionales[:mitad]
-                            bloque2 = campos_adicionales[mitad:]
+                    campos_adicionales = []
+                    for col in cols_restantes:
+                        val = str(row[col]).strip()
+                        if val and val.lower() not in ["nan", "none", "<na>", "null", ""]:
+                            campos_adicionales.append((col, val))
+                    
+                    if campos_adicionales:
+                        mitad = (len(campos_adicionales) + 1) // 2
+                        bloque1 = campos_adicionales[:mitad]
+                        bloque2 = campos_adicionales[mitad:]
 
-                            col_add1, col_add2 = st.columns(2)
-                            with col_add1:
+                        col_add1, col_add2 = st.columns(2)
+                        with col_add1:
+                            with st.container(border=True):
+                                st.markdown("### 📂 Información Complementaria")
+                                for key, val in bloque1:
+                                    st.markdown(f"**{key}:** {val}")
+                        
+                        if bloque2:
+                            with col_add2:
                                 with st.container(border=True):
-                                    st.markdown("### 📂 Información Complementaria")
-                                    for key, val in bloque1:
+                                    st.markdown("### 📊 Datos Adicionales")
+                                    for key, val in bloque2:
                                         st.markdown(f"**{key}:** {val}")
-                            
-                            if bloque2:
-                                with col_add2:
-                                    with st.container(border=True):
-                                        st.markdown("### 📊 Datos Adicionales")
-                                        for key, val in bloque2:
-                                            st.markdown(f"**{key}:** {val}")
 
                     # Botón de enlace PDF (si existe)
-                    url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf', 'link', 'planilla'], "Sin datos")
+                    url_pdf_val = extraer_campo_estricto(row, ['url_pdf', 'pdf', 'link', 'planilla'], "Sin datos")
                     if url_pdf_val != "Sin datos" and url_pdf_val.startswith("http"):
                         st.link_button("🔗 Abrir PDF Planilla", url_pdf_val, use_container_width=True)
 
                 st.markdown("---")
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro.")
-
 # ==============================================================================
 # MÓDULO 2: PANEL DE CONTROL EJECUTIVOS
 # ==============================================================================
