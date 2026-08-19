@@ -1,13 +1,48 @@
 import streamlit as st
 import pandas as pd
 import unicodedata
-import re
+import io
 
 # ==============================================================================
-# FUNCIONES DE UTILIDAD Y NORMALIZACIÓN
+# CONFIGURACIÓN DE PÁGINA DE STREAMLIT
+# ==============================================================================
+st.set_page_config(
+    page_title="Dashboard de Líderes",
+    page_icon="🔍",
+    layout="wide"
+)
+
+# ==============================================================================
+# CARGA DE DATOS (Ajusta la fuente si usas Google Sheets o archivo local)
+# ==============================================================================
+@st.cache_data(ttl=600)
+def cargar_datos():
+    # Intenta cargar tu archivo/base de datos. Si falla, genera una estructura de prueba.
+    try:
+        # Reemplaza 'base_lideres.xlsx' o tu URL de Google Sheets según tu proyecto:
+        df = pd.read_excel("base_lideres.xlsx") 
+        return df
+    except Exception:
+        # DataFrame de respaldo si aún no está vinculado el archivo local
+        return pd.DataFrame()
+
+df_lideres = cargar_datos()
+
+# ==============================================================================
+# MENÚ NAVEGACIÓN LATERAL (Solución al NameError de 'menu')
+# ==============================================================================
+st.sidebar.title("📌 Menú de Navegación")
+menu = st.sidebar.radio(
+    "Seleccione una opción:",
+    ["🔍 Consulta Detallada", "📊 Resumen General"],
+    index=0
+)
+
+# ==============================================================================
+# FUNCIONES AUXILIARES Y NORMALIZACIÓN
 # ==============================================================================
 def normalizar(texto):
-    """Normaliza texto eliminando tildes, mayúsculas y caracteres especiales."""
+    """Normaliza texto eliminando tildes, mayúsculas y espacios extra."""
     if not isinstance(texto, str):
         texto = str(texto)
     texto = unicodedata.normalize('NFD', texto)
@@ -15,7 +50,7 @@ def normalizar(texto):
     return texto.lower().strip()
 
 def buscar_columna_df(df_cols, alias_list):
-    """Encuentra la columna real dentro del DataFrame buscando alias."""
+    """Encuentra la columna real dentro del DataFrame según alias."""
     for alias in alias_list:
         alias_norm = normalizar(alias)
         for col in df_cols:
@@ -25,7 +60,7 @@ def buscar_columna_df(df_cols, alias_list):
     return None
 
 def obtener_valor_inteligente(row, df_cols, alias_list, default="Sin datos", cols_usadas=None):
-    """Obtiene el valor de una columna según sus alias y evita repetir columnas."""
+    """Busca y extrae el valor correcto evitando columnas duplicadas."""
     col_encontrada = buscar_columna_df(df_cols, alias_list)
     if col_encontrada:
         if cols_usadas is not None:
@@ -36,8 +71,8 @@ def obtener_valor_inteligente(row, df_cols, alias_list, default="Sin datos", col
     return default
 
 def obtener_fecha_cumpleanos_formateada(row, df_cols, cols_usadas=None):
-    """Busca la columna de cumpleaños y le da un formato legible."""
-    val = obtener_valor_inteligente(row, df_cols, ["cumpleanos", "cumpleaños", "fecha nacimiento", "nacimiento"], "Sin datos", cols_usadas)
+    """Busca y da formato legible al cumpleaños."""
+    val = obtener_valor_inteligente(row, df_cols, ["cumpleanos", "cumpleaños", "fecha nacimiento"], "Sin datos", cols_usadas)
     if val != "Sin datos":
         try:
             fecha_dt = pd.to_datetime(val)
@@ -47,21 +82,23 @@ def obtener_fecha_cumpleanos_formateada(row, df_cols, cols_usadas=None):
     return val
 
 def generar_pdf_ficha(row, df_cols):
-    """Función stub para la generación de PDF Ficha."""
-    # Reemplaza con la lógica de generación PDF de tu sistema si aplica
-    return b"PDF_DUMMY_DATA"
-
+    """Generador stub para descargar PDF."""
+    buffer = io.BytesIO()
+    buffer.write(b"%PDF-1.4 Ficha Falsa de Prueba")
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # ==============================================================================
 # MÓDULO 1: CONSULTA DETALLADA
 # ==============================================================================
 if menu == "🔍 Consulta Detallada":
-    st.subheader("🔍 Consulta Detallada de Líderes")
+    st.title("🔍 Consulta Detallada de Líderes")
+
     if not df_lideres.empty:
         criterio = st.radio("Buscar por:", ["Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
-        resultado = pd.DataFrame()
-        
         busqueda = st.text_input("Ingrese término de búsqueda:")
+        
+        resultado = pd.DataFrame()
         if busqueda.strip():
             mask = df_lideres.astype(str).apply(
                 lambda row: row.str.contains(busqueda.strip(), case=False, na=False)
@@ -74,86 +111,43 @@ if menu == "🔍 Consulta Detallada":
             for idx, row in resultado.iterrows():
                 cols_usadas = set()
 
-                # --- 1. Identificación y Nombre ---
-                cedula = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["cedula", "identificacion", "documento", "id"], "Sin datos", cols_usadas
-                )
-                nombres = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["nombres", "nombre"], "", cols_usadas
-                )
-                apellidos = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["apellidos", "apellido"], "", cols_usadas
-                )
+                # 1. Identificación y Nombres
+                cedula = obtener_valor_inteligente(row, df_lideres.columns, ["cedula", "identificacion", "documento", "id"], "Sin datos", cols_usadas)
+                nombres = obtener_valor_inteligente(row, df_lideres.columns, ["nombres", "nombre"], "", cols_usadas)
+                apellidos = obtener_valor_inteligente(row, df_lideres.columns, ["apellidos", "apellido"], "", cols_usadas)
                 nombre_completo = f"{nombres} {apellidos}".strip() or "NOMBRE NO REGISTRADO"
 
-                # --- 2. Datos Bloque Laboral ---
-                dependencia = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["dependencia"], "Sin datos", cols_usadas
-                )
-                secretaria = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["secretaria", "secretaría"], "Sin datos", cols_usadas
-                )
-                cargo = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["cargo actual", "cargo", "puesto"], "Sin datos", cols_usadas
-                )
-                profesion = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["profesion", "profesión", "oficio"], "Sin datos", cols_usadas
-                )
-                lider_apoyo = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["lider / apoyo", "lider/apoyo", "lider", "apoyo"], "Sin datos", cols_usadas
-                )
+                # 2. Información Laboral
+                dependencia = obtener_valor_inteligente(row, df_lideres.columns, ["dependencia"], "Sin datos", cols_usadas)
+                secretaria = obtener_valor_inteligente(row, df_lideres.columns, ["secretaria", "secretaría"], "Sin datos", cols_usadas)
+                cargo = obtener_valor_inteligente(row, df_lideres.columns, ["cargo actual", "cargo", "puesto"], "Sin datos", cols_usadas)
+                profesion = obtener_valor_inteligente(row, df_lideres.columns, ["profesion", "profesión", "oficio"], "Sin datos", cols_usadas)
+                lider_apoyo = obtener_valor_inteligente(row, df_lideres.columns, ["lider / apoyo", "lider/apoyo", "lider", "apoyo"], "Sin datos", cols_usadas)
 
-                # --- 3. Datos Contacto Directo ---
-                telefono = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["telefono / celular", "telefono", "celular", "tel", "movil"], "Sin datos", cols_usadas
-                )
-                correo = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["correo", "email", "mail"], "Sin datos", cols_usadas
-                )
-                redes = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["redes sociales", "redes"], "Sin datos", cols_usadas
-                )
+                # 3. Contacto Directo
+                telefono = obtener_valor_inteligente(row, df_lideres.columns, ["telefono / celular", "telefono", "celular", "tel", "movil"], "Sin datos", cols_usadas)
+                correo = obtener_valor_inteligente(row, df_lideres.columns, ["correo", "email", "mail"], "Sin datos", cols_usadas)
+                redes = obtener_valor_inteligente(row, df_lideres.columns, ["redes sociales", "redes"], "Sin datos", cols_usadas)
 
-                # --- 4. Datos Ubicación y Fechas ---
-                municipio = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["municipio", "ciudad"], "Sin datos", cols_usadas
-                )
-                comuna = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["comuna"], "Sin datos", cols_usadas
-                )
-                barrio = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["barrio"], "Sin datos", cols_usadas
-                )
+                # 4. Ubicación y Fechas
+                municipio = obtener_valor_inteligente(row, df_lideres.columns, ["municipio", "ciudad"], "Sin datos", cols_usadas)
+                comuna = obtener_valor_inteligente(row, df_lideres.columns, ["comuna"], "Sin datos", cols_usadas)
+                barrio = obtener_valor_inteligente(row, df_lideres.columns, ["barrio"], "Sin datos", cols_usadas)
                 cumpleanos = obtener_fecha_cumpleanos_formateada(row, df_lideres.columns, cols_usadas)
 
-                # --- 5. Datos Proyección y Notas ---
-                proyeccion = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["proyeccion", "proyección"], "Sin datos", cols_usadas
-                )
-                registros = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["registros", "registro"], "Sin datos", cols_usadas
-                )
-                notas = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["notas / observaciones", "notas", "observaciones", "comentarios"], "Sin datos", cols_usadas
-                )
+                # 5. Proyección y Notas
+                proyeccion = obtener_valor_inteligente(row, df_lideres.columns, ["proyeccion", "proyección"], "Sin datos", cols_usadas)
+                registros = obtener_valor_inteligente(row, df_lideres.columns, ["registros", "registro"], "Sin datos", cols_usadas)
+                notas = obtener_valor_inteligente(row, df_lideres.columns, ["notas / observaciones", "notas", "observaciones", "comentarios"], "Sin datos", cols_usadas)
 
-                # --- 6. Datos Planillas y Registros (INCLUYE CENSO) ---
-                amigos = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["no. amigos", "nro amigos", "amigos"], "0", cols_usadas
-                )
-                bello = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["municipio de bello", "bello"], "Sin datos", cols_usadas
-                )
-                otros_muni = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["otros municipios"], "Sin datos", cols_usadas
-                )
-                censo = obtener_valor_inteligente(
-                    row, df_lideres.columns, ["no esta en el censo", "censo", "no censo"], "Sin datos", cols_usadas
-                )
+                # 6. Planillas y Registros (CENSO INCLUIDO)
+                amigos = obtener_valor_inteligente(row, df_lideres.columns, ["no. amigos", "nro amigos", "amigos"], "0", cols_usadas)
+                bello = obtener_valor_inteligente(row, df_lideres.columns, ["municipio de bello", "bello"], "Sin datos", cols_usadas)
+                otros_muni = obtener_valor_inteligente(row, df_lideres.columns, ["otros municipios"], "Sin datos", cols_usadas)
+                censo = obtener_valor_inteligente(row, df_lideres.columns, ["no esta en el censo", "censo", "no censo"], "Sin datos", cols_usadas)
 
-                # --- RENDERIZADO VISUAL EN TARJETAS ---
+                # --- RENDERIZADO TARJETAS ---
                 with st.container(border=True):
-                    # Cabecera Principal
                     col_header1, col_header2 = st.columns([3, 1])
                     with col_header1:
                         st.markdown(f"# **{nombre_completo.upper()}**")
@@ -168,7 +162,7 @@ if menu == "🔍 Consulta Detallada":
                             use_container_width=True
                         )
 
-                    # --- Fila 1: Laboral, Contacto y Ubicación ---
+                    # Fila 1
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         with st.container(border=True):
@@ -183,9 +177,7 @@ if menu == "🔍 Consulta Detallada":
                         with st.container(border=True):
                             st.markdown("### 📞 Contacto Directo")
                             st.markdown(f"**Teléfono / Celular:** {telefono}")
-                            st.markdown(
-                                f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos"
-                            )
+                            st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
                             st.markdown(f"**Redes Sociales:** {redes}")
 
                     with col3:
@@ -196,7 +188,7 @@ if menu == "🔍 Consulta Detallada":
                             st.markdown(f"**Barrio:** {barrio}")
                             st.markdown(f"**Cumpleaños:** {cumpleanos}")
 
-                    # --- Fila 2: Proyección y Planillas ---
+                    # Fila 2
                     col4, col5 = st.columns(2)
                     with col4:
                         with st.container(border=True):
@@ -213,7 +205,7 @@ if menu == "🔍 Consulta Detallada":
                             st.markdown(f"**Otros Municipios:** {otros_muni}")
                             st.markdown(f"**No está en el censo:** {censo}")
 
-                    # --- Fila 3: Captura de cualquier columna sobrante no mapeada ---
+                    # Fila 3: Captura de datos extra no asignados
                     cols_restantes = [
                         c for c in df_lideres.columns 
                         if c not in cols_usadas and normalizar(str(c)) not in ["url_pdf", "pdf", "link", "planilla"]
@@ -243,3 +235,9 @@ if menu == "🔍 Consulta Detallada":
                 st.markdown("---")
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro.")
+    else:
+        st.warning("⚠️ La base de datos no contiene registros o no se ha cargado un archivo de datos válido.")
+
+elif menu == "📊 Resumen General":
+    st.title("📊 Resumen General")
+    st.info("Sección en construcción o para indicadores globales.")
