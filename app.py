@@ -48,7 +48,7 @@ def cargar_datos():
             df = df.fillna("")
             for col in df.columns:
                 df[col] = df[col].str.replace(".0", "", regex=False)
-                df[col] = df[col].replace(["nan", "None", "<NA>"], "")
+                df[col] = df[col].replace(["nan", "None", "<NA>", "nan"], "")
             return df
         except Exception as e:
             st.error(f"Error al procesar los datos de la hoja: {e}")
@@ -65,7 +65,6 @@ df_lideres = st.session_state.df_lideres
 # 1. SISTEMA DE LOGIN Y AUTENTICACIÓN
 # ------------------------------------------------------------------------------
 def verificar_login():
-    """Muestra la pantalla de inicio de sesión si el usuario no se ha autenticado."""
     if st.session_state.get("autenticado", False):
         return True
 
@@ -107,7 +106,7 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #11223F !important; }
     [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #FFFFFF !important; }
     [data-testid="stSidebar"] .stButton > button { background-color: #1A365D !important; color: #FFFFFF !important; border: 1px solid #2B6CB0 !important; border-radius: 8px !important; }
-    [data-testid="stSidebar"] .stButton > button:hover { background-color: #F59E0B !important; border-color: #D97706 !important; color: #FFFFFF !important; color: #FFFFFF !important; }
+    [data-testid="stSidebar"] .stButton > button:hover { background-color: #F59E0B !important; border-color: #D97706 !important; color: #FFFFFF !important; }
     [data-testid="stVerticalBlock"] > div[data-testid="stBlock"], div[data-testid="stForm"], .stCard { background-color: #FFFFFF !important; border-radius: 12px !important; padding: 16px !important; border: 1px solid #E2E8F0 !important; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05) !important; }
     [data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
     [data-testid="stMetricLabel"] p { color: #334155 !important; font-weight: 700 !important; }
@@ -120,7 +119,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# FUNCIONES AUXILIARES Y DE EXPORTACIÓN PDF
+# FUNCIONES AUXILIARES Y BÚSQUEDA AVANZADA
 # ------------------------------------------------------------------------------
 NOMBRES_MESES = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
 
@@ -130,6 +129,7 @@ def normalizar(texto):
     return ''.join(c for c in texto if unicodedata.category(c) != 'Mn').lower().strip()
 
 def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos", cols_usadas=None):
+    """Busca en el DataFrame la columna que coincida con alguna palabra clave y retorna su valor."""
     for key in palabras_clave:
         key_norm = normalizar(key)
         for col in df_columns:
@@ -145,7 +145,7 @@ def obtener_fecha_cumpleanos_formateada(row, df_columns, cols_usadas=None):
     col_dia, col_mes = None, None
     for col in df_columns:
         col_n = normalizar(col)
-        if "fecha de cumple" in col_n or col_n in ["dia", "day"]: 
+        if "fecha de cumple" in col_n or col_n in ["dia", "day", "cumpleanos"]: 
             col_dia = col
             if cols_usadas is not None: cols_usadas.add(col)
         elif "unnamed: 12" in col_n or col_n in ["mes", "month"]: 
@@ -179,7 +179,7 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     
     for col in df.columns:
         col_n = normalizar(col)
-        if "fecha de cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
+        if "fecha de cumple" in col_n or col_n in ["dia", "day", "cumpleanos"]: col_dia = col
         elif "unnamed: 12" in col_n or col_n in ["mes", "month"]: col_mes = col
 
     for idx, row in df.iterrows():
@@ -323,6 +323,7 @@ if menu == "🔍 Consulta Detallada":
             for idx, row in resultado.iterrows():
                 cols_usadas = set()
                 
+                # Campos principales con búsqueda amplia
                 nombres = obtener_valor_campo(row, df_lideres.columns, ["nombres", "nombre"], "", cols_usadas)
                 apellidos = obtener_valor_campo(row, df_lideres.columns, ["apellidos", "apellido"], "", cols_usadas)
                 nombre_completo = f"{nombres} {apellidos}".strip() or "NOMBRE NO REGISTRADO"
@@ -352,52 +353,54 @@ if menu == "🔍 Consulta Detallada":
                             st.markdown("### 📌 Información Laboral")
                             st.markdown(f"**Dependencia:** {dependencia}")
                             st.markdown(f"**Secretaría:** {obtener_valor_campo(row, df_lideres.columns, ['secretaria', 'sec'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo', 'puesto'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion', 'oficio'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Líder / Apoyo:** {obtener_valor_campo(row, df_lideres.columns, ['lider', 'apoyo', 'rol'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Cargo Actual:** {obtener_valor_campo(row, df_lideres.columns, ['cargo', 'puesto', 'ocupacion'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Profesión:** {obtener_valor_campo(row, df_lideres.columns, ['profesion', 'oficio', 'titulo'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Líder / Apoyo:** {obtener_valor_campo(row, df_lideres.columns, ['lider', 'apoyo', 'rol', 'lider / apoyo'], 'Sin datos', cols_usadas)}")
 
                     with col2:
                         with st.container(border=True):
                             st.markdown("### 📞 Contacto Directo")
-                            st.markdown(f"**Teléfono / Celular:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular', 'tel'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Teléfono / Celular:** {obtener_valor_campo(row, df_lideres.columns, ['telefono', 'celular', 'tel', 'movil'], 'Sin datos', cols_usadas)}")
                             correo = obtener_valor_campo(row, df_lideres.columns, ['correo', 'email', 'mail'], 'Sin datos', cols_usadas)
                             st.markdown(f"**Correo:** [{correo}](mailto:{correo})" if correo != "Sin datos" else "**Correo:** Sin datos")
-                            st.markdown(f"**Redes Sociales:** {obtener_valor_campo(row, df_lideres.columns, ['redes', 'redes sociales', 'instagram', 'facebook'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Redes Sociales:** {obtener_valor_campo(row, df_lideres.columns, ['redes', 'redes sociales', 'instagram', 'facebook', 'social'], 'Sin datos', cols_usadas)}")
 
                     with col3:
                         with st.container(border=True):
                             st.markdown("### 📍 Ubicación y Fechas")
                             st.markdown(f"**Municipio:** {obtener_valor_campo(row, df_lideres.columns, ['municipio', 'ciudad'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Comuna:** {obtener_valor_campo(row, df_lideres.columns, ['comuna', 'zona'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Barrio:** {obtener_valor_campo(row, df_lideres.columns, ['barrio', 'sector'], 'Sin datos', cols_usadas)}")
                             st.markdown(f"**Cumpleaños:** {obtener_fecha_cumpleanos_formateada(row, df_lideres.columns, cols_usadas)}")
 
-                    # --- Fila 2: Proyección y Votación / Planillas ---
+                    # --- Fila 2: Proyección, Notas y Planillas ---
                     col4, col5 = st.columns(2)
                     with col4:
                         with st.container(border=True):
                             st.markdown("### 📌 Proyección y Notas")
-                            st.markdown(f"**Proyección:** {obtener_valor_campo(row, df_lideres.columns, ['proyeccion'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Registros:** {obtener_valor_campo(row, df_lideres.columns, ['registros'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Notas / Observaciones:** {obtener_valor_campo(row, df_lideres.columns, ['notas', 'observaciones', 'observacion'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Proyección:** {obtener_valor_campo(row, df_lideres.columns, ['proyeccion', 'meta', 'objetivo'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Registros:** {obtener_valor_campo(row, df_lideres.columns, ['registros', 'conteo', 'avance'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Notas / Observaciones:** {obtener_valor_campo(row, df_lideres.columns, ['notas', 'observaciones', 'observacion', 'comentario', 'detalle', 'notas / observaciones'], 'Sin datos', cols_usadas)}")
 
                     with col5:
                         with st.container(border=True):
                             st.markdown("### 📋 Planillas y Registros")
-                            st.markdown(f"**No. Amigos:** {obtener_valor_campo(row, df_lideres.columns, ['amigos', 'no. amigos', 'nro amigos'], '0', cols_usadas)}")
+                            st.markdown(f"**No. Amigos:** {obtener_valor_campo(row, df_lideres.columns, ['amigos', 'no. amigos', 'nro amigos', 'amigos inscritos'], '0', cols_usadas)}")
                             st.markdown(f"**Municipio de Bello:** {obtener_valor_campo(row, df_lideres.columns, ['bello', 'municipio de bello'], 'Sin datos', cols_usadas)}")
-                            st.markdown(f"**Otros Municipios:** {obtener_valor_campo(row, df_lideres.columns, ['otros municipios', 'otros'], 'Sin datos', cols_usadas)}")
+                            st.markdown(f"**Otros Municipios:** {obtener_valor_campo(row, df_lideres.columns, ['otros municipios', 'otros', 'otras ciudades'], 'Sin datos', cols_usadas)}")
 
-                    # --- Fila 3: Información Adicional (Mismo Estilo Visual) ---
-                    # Capturar cualquier otra columna no renderizada previamente
+                    # --- Fila 3: Captura Visual Completa de Columnas Restantes ---
                     cols_restantes = [c for c in df_lideres.columns if c not in cols_usadas and normalizar(c) not in ["url_pdf", "pdf", "link", "planilla"]]
                     
                     if cols_restantes:
-                        # Filtrar solo aquellas con algún valor
-                        campos_adicionales = [(col, str(row[col]).strip()) for col in cols_restantes if str(row[col]).strip() and str(row[col]).strip().lower() not in ["nan", "none", "<na>", "null"]]
+                        # Extraer cualquier columna con datos válidos
+                        campos_adicionales = []
+                        for col in cols_restantes:
+                            val = str(row[col]).strip()
+                            if val and val.lower() not in ["nan", "none", "<na>", "null", ""]:
+                                campos_adicionales.append((col, val))
                         
                         if campos_adicionales:
-                            # Dividir en hasta 2 o 3 tarjetas para mantener simetría
                             mitad = (len(campos_adicionales) + 1) // 2
                             bloque1 = campos_adicionales[:mitad]
                             bloque2 = campos_adicionales[mitad:]
@@ -444,7 +447,7 @@ elif menu == "📈 Panel de Control Ejecutivos":
         st.markdown("---")
 
 # ==============================================================================
-# MÓDULO 3: REGISTRO DE NUEVO USUARIO (CON ESCRITURA EN GOOGLE SHEETS)
+# MÓDULO 3: REGISTRO DE NUEVO USUARIO
 # ==============================================================================
 elif menu == "➕ Registro de Nuevo Usuario":
     st.subheader("➕ Registro de Nuevo Usuario")
@@ -475,7 +478,7 @@ elif menu == "➕ Registro de Nuevo Usuario":
                     st.rerun()
 
 # ==============================================================================
-# MÓDULO 4: EDITAR / MODIFICAR REGISTROS (FORMULARIO INDIVIDUAL)
+# MÓDULO 4: EDITAR / MODIFICAR REGISTROS
 # ==============================================================================
 elif menu == "✏️ Editar / Modificar Registros":
     st.title("✏️ Edición Formulario Individual de Usuarios")
@@ -524,7 +527,7 @@ elif menu == "✏️ Editar / Modificar Registros":
                 st.warning("⚠️ No se encontró ningún registro con la cédula ingresada.")
 
 # ==============================================================================
-# MÓDULO 5: BASE DE DATOS COMPLETA (EDICIÓN DIRECTA TIPO EXCEL + GUARDAR CAMBIOS)
+# MÓDULO 5: BASE DE DATOS COMPLETA
 # ==============================================================================
 elif menu == "📋 Base de Datos Completa (Edición Directa)":
     st.subheader("📋 Base de Datos Completa (Edición Directa Tipo Excel)")
