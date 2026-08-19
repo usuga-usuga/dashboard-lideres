@@ -672,42 +672,44 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
             df_editable,
             num_rows="dynamic",
             use_container_width=True,
-            hide_index=True,
-            key="editor_tabla_lideres"
+            key="editor_tabla_completa"
         )
         
-        col_btn1, col_btn2 = st.columns([2, 2])
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_s1, col_s2 = st.columns([1, 1])
         
-        with col_btn1:
-            if st.button("💾 Guardar Cambios en Google Sheets", use_container_width=False):
-                with st.spinner("Guardando y actualizando base de datos en Google Sheets..."):
-                    sheet = conectar_google_sheets()
-                    if sheet:
-                        # 1. Aplicar cambios respetando los datos no visibles si había un filtro
+        with col_s1:
+            if st.button("💾 Guardar Cambios en Google Sheets", use_container_width=True):
+                sheet = conectar_google_sheets()
+                if sheet:
+                    try:
+                        # Si hay filtro activo se actualizan solo los registros filtrados en el estado de sesión
                         if filtro_tabla.strip():
                             st.session_state.df_lideres.update(df_modificado)
-                            df_para_guardar = st.session_state.df_lideres.fillna("").astype(str)
                         else:
-                            st.session_state.df_lideres = df_modificado.fillna("").astype(str)
-                            df_para_guardar = st.session_state.df_lideres
-
-                        # 2. Reescritura segura en Google Sheets
+                            st.session_state.df_lideres = df_modificado.copy()
+                        
+                        # Conservar los encabezados originales de la hoja de cálculo
+                        offset = st.session_state.get("header_offset", 1)
+                        datos_hoja = sheet.get_all_values()
+                        encabezados = datos_hoja[:offset] if len(datos_hoja) >= offset else [list(st.session_state.df_lideres.columns)]
+                        
+                        nuevas_filas = st.session_state.df_lideres.fillna("").values.tolist()
+                        contenido_total = encabezados + nuevas_filas
+                        
                         sheet.clear()
-                        encabezados = df_para_guardar.columns.tolist()
-                        filas = df_para_guardar.values.tolist()
-                        
-                        actualizar_hoja_gspread(sheet, "A1", [encabezados] + filas)
-                        st.session_state.header_offset = 1 # Estructura unificada a 1 sola fila de encabezado
-                        
-                        st.success("✅ ¡Todos los cambios se guardaron en Google Sheets sin pérdida de datos!")
+                        actualizar_hoja_gspread(sheet, "A1", contenido_total)
+                        st.success("✅ Base de datos actualizada con éxito en Google Sheets.")
                         st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error al guardar los cambios en Google Sheets: {e}")
 
-        with col_btn2:
+        with col_s2:
             csv_data = df_modificado.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 Descargar Vista Actual en CSV",
+                label="📥 Descargar Vista Actual (CSV)",
                 data=csv_data,
-                file_name=f"Base_Lideres_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                file_name=f"Base_Datos_Lideres_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
-                use_container_width=False
+                use_container_width=True
             )
