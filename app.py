@@ -22,142 +22,7 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------------------------
-# CONEXIÓN CON GOOGLE SHEETS VÍA GSPREAD
-# ------------------------------------------------------------------------------
-SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
-
-@st.cache_resource
-def conectar_google_sheets():
-    """Conecta con la API de Google Sheets directamente a la pestaña 'Base de datos Lideres'."""
-    try:
-        credenciales = dict(st.secrets["gcp_service_account"])
-        client = gspread.service_account_from_dict(credenciales)
-        
-        # Intentar conectar directamente a la pestaña deseada
-        try:
-            sheet = client.open_by_key(SHEET_ID).worksheet("Base de datos Lideres")
-        except Exception:
-            sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
-            
-        return sheet
-    except Exception as e:
-        st.error(f"⚠️ Error al conectar con Google Sheets API: {e}")
-        return None
-
-def cargar_datos():
-    """Carga y reestructura las columnas eliminando nombres irrelevantes o genéricos (Columna_xxx)."""
-    sheet = conectar_google_sheets()
-    if sheet:
-        try:
-            data = sheet.get_all_values()
-            if not data or len(data) < 2:
-                return pd.DataFrame()
-            
-            fila_1 = [str(c).strip() for c in data[0]]
-            fila_2 = [str(c).strip() for c in data[1]] if len(data) > 1 else []
-
-            # Determinar si la primera fila es un encabezado superior multinivel
-            tiene_encabezado_doble = any("PROYECCI" in c.upper() or "PLANILLA" in c.upper() for c in fila_1)
-
-            if tiene_encabezado_doble and len(data) >= 2:
-                headers_crudos = fila_2
-                data_rows = data[2:]
-            else:
-                headers_crudos = fila_1
-                data_rows = data[1:]
-
-            nombres_mapeados = []
-            vistos = {}
-
-            for idx, raw_h in enumerate(headers_crudos):
-                h_clean = raw_h.strip()
-                
-                if not h_clean or h_clean.lower().startswith("columna_") or h_clean.lower().startswith("unnamed"):
-                    nombres_sugeridos = [
-                        "Nombres", "Apellidos", "Cédula / Identificación", "Dependencia", 
-                        "Secretaría", "Cargo Actual", "Profesión", "Teléfono / Celular", 
-                        "Correo Electrónico", "Comuna", "Barrio", "Día Cumpleaños", 
-                        "Mes Cumpleaños", "Proyección", "Registros", "Municipio", 
-                        "Notas", "No. Amigos", "Municipio / Bello", "Otros Municipios / Deptos", 
-                        "No está en Censo", "Cédula Errónea", "URL Planilla PDF"
-                    ]
-                    if idx < len(nombres_sugeridos):
-                        h_clean = nombres_sugeridos[idx]
-                    else:
-                        h_clean = f"Campo Adicional {idx + 1}"
-
-                if h_clean in vistos:
-                    vistos[h_clean] += 1
-                    nombre_final = f"{h_clean} ({vistos[h_clean]})"
-                else:
-                    vistos[h_clean] = 0
-                    nombre_final = h_clean
-
-                nombres_mapeados.append(nombre_final)
-
-            num_cols = len(nombres_mapeados)
-            filas_limpias = []
-            for row in data_rows:
-                if len(row) < num_cols:
-                    row = row + [""] * (num_cols - len(row))
-                else:
-                    row = row[:num_cols]
-                filas_limpias.append(row)
-
-            df = pd.DataFrame(filas_limpias, columns=nombres_mapeados).astype(str)
-            
-            for col in df.columns:
-                df[col] = df[col].str.replace(".0", "", regex=False)
-                df[col] = df[col].replace(["nan", "None", "<NA>", "null"], "")
-                df[col] = df[col].str.strip()
-
-            return df
-        except Exception as e:
-            st.error(f"Error al procesar y ordenar la estructura de la hoja: {e}")
-            return pd.DataFrame()
-    return pd.DataFrame()
-
-if "df_lideres" not in st.session_state or st.session_state.df_lideres.empty:
-    st.session_state.df_lideres = cargar_datos()
-
-df_lideres = st.session_state.df_lideres
-
-# ------------------------------------------------------------------------------
-# 1. SISTEMA DE LOGIN Y AUTENTICACIÓN
-# ------------------------------------------------------------------------------
-def verificar_login():
-    if st.session_state.get("autenticado", False):
-        return True
-
-    st.markdown("<h2 style='text-align: center; color: #0F172A;'>🔒 Sistema de Control de Acceso</h2>", unsafe_allow_html=True)
-    
-    col_c1, col_c2, col_c3 = st.columns([1, 1.2, 1])
-    with col_c2:
-        with st.container(border=True):
-            st.subheader("Iniciar Sesión")
-            with st.form("form_login"):
-                usuario = st.text_input("Usuario:")
-                password = st.text_input("Contraseña:", type="password")
-                boton_login = st.form_submit_button("Ingresar", use_container_width=True)
-
-                if boton_login:
-                    if "usuarios" in st.secrets and usuario in st.secrets["usuarios"]:
-                        if str(password) == str(st.secrets["usuarios"][usuario]):
-                            st.session_state.autenticado = True
-                            st.success("✅ Acceso concedido")
-                            st.rerun()
-                        else:
-                            st.error("❌ Contraseña incorrecta")
-                    else:
-                        st.error("❌ Usuario no registrado o secretos no configurados")
-
-    return False
-
-if not verificar_login():
-    st.stop()
-
-# ------------------------------------------------------------------------------
-# ESTILO Y TEMA VISUAL MEJORADO
+# ESTILO Y TEMA VISUAL
 # ------------------------------------------------------------------------------
 st.markdown("""
     <style>
@@ -223,6 +88,149 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
+# 1. SISTEMA DE LOGIN Y AUTENTICACIÓN (EVALUADO ANTES DE CUALQUIER CARGA)
+# ------------------------------------------------------------------------------
+def verificar_login():
+    if st.session_state.get("autenticado", False):
+        return True
+
+    st.markdown("<h2 style='text-align: center; color: #0F172A;'>🔒 Sistema de Control de Acceso</h2>", unsafe_allow_html=True)
+    
+    col_c1, col_c2, col_c3 = st.columns([1, 1.2, 1])
+    with col_c2:
+        with st.container(border=True):
+            st.subheader("Iniciar Sesión")
+            with st.form("form_login"):
+                usuario = st.text_input("Usuario:")
+                password = st.text_input("Contraseña:", type="password")
+                boton_login = st.form_submit_button("Ingresar", use_container_width=True)
+
+                if boton_login:
+                    if "usuarios" in st.secrets and usuario in st.secrets["usuarios"]:
+                        if str(password) == str(st.secrets["usuarios"][usuario]):
+                            st.session_state.autenticado = True
+                            st.success("✅ Acceso concedido")
+                            st.rerun()
+                        else:
+                            st.error("❌ Contraseña incorrecta")
+                    else:
+                        st.error("❌ Usuario no registrado o secretos no configurados")
+
+    return False
+
+if not verificar_login():
+    st.stop()
+
+# ------------------------------------------------------------------------------
+# CONEXIÓN CON GOOGLE SHEETS VÍA GSPREAD
+# ------------------------------------------------------------------------------
+SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
+
+@st.cache_resource
+def conectar_google_sheets():
+    """Conecta con la API de Google Sheets directamente a la pestaña 'Base de datos Lideres'."""
+    try:
+        credenciales = dict(st.secrets["gcp_service_account"])
+        client = gspread.service_account_from_dict(credenciales)
+        
+        try:
+            sheet = client.open_by_key(SHEET_ID).worksheet("Base de datos Lideres")
+        except Exception:
+            sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
+            
+        return sheet
+    except Exception as e:
+        st.error(f"⚠️ Error al conectar con Google Sheets API: {e}")
+        return None
+
+def actualizar_hoja_gspread(sheet, range_name, values):
+    """Función de compatibilidad para actualizar celdas en gspread v5 y v6+."""
+    try:
+        sheet.update(range_name=range_name, values=values)
+    except TypeError:
+        sheet.update(range_name, values)
+
+def cargar_datos():
+    """Carga y reestructura las columnas procesando adecuadamente el encabezado."""
+    sheet = conectar_google_sheets()
+    if sheet:
+        try:
+            data = sheet.get_all_values()
+            if not data or len(data) < 2:
+                st.session_state.header_offset = 1
+                return pd.DataFrame()
+            
+            fila_1 = [str(c).strip() for c in data[0]]
+            fila_2 = [str(c).strip() for c in data[1]] if len(data) > 1 else []
+
+            tiene_encabezado_doble = any("PROYECCI" in c.upper() or "PLANILLA" in c.upper() for c in fila_1)
+
+            if tiene_encabezado_doble and len(data) >= 2:
+                headers_crudos = fila_2
+                data_rows = data[2:]
+                st.session_state.header_offset = 2  # 2 filas de encabezado
+            else:
+                headers_crudos = fila_1
+                data_rows = data[1:]
+                st.session_state.header_offset = 1  # 1 fila de encabezado
+
+            nombres_mapeados = []
+            vistos = {}
+
+            for idx, raw_h in enumerate(headers_crudos):
+                h_clean = raw_h.strip()
+                
+                if not h_clean or h_clean.lower().startswith("columna_") or h_clean.lower().startswith("unnamed"):
+                    nombres_sugeridos = [
+                        "Nombres", "Apellidos", "Cédula / Identificación", "Dependencia", 
+                        "Secretaría", "Cargo Actual", "Profesión", "Teléfono / Celular", 
+                        "Correo Electrónico", "Comuna", "Barrio", "Día Cumpleaños", 
+                        "Mes Cumpleaños", "Proyección", "Registros", "Municipio", 
+                        "Notas", "No. Amigos", "Municipio / Bello", "Otros Municipios / Deptos", 
+                        "No está en Censo", "Cédula Errónea", "URL Planilla PDF"
+                    ]
+                    if idx < len(nombres_sugeridos):
+                        h_clean = nombres_sugeridos[idx]
+                    else:
+                        h_clean = f"Campo Adicional {idx + 1}"
+
+                if h_clean in vistos:
+                    vistos[h_clean] += 1
+                    nombre_final = f"{h_clean} ({vistos[h_clean]})"
+                else:
+                    vistos[h_clean] = 0
+                    nombre_final = h_clean
+
+                nombres_mapeados.append(nombre_final)
+
+            num_cols = len(nombres_mapeados)
+            filas_limpias = []
+            for row in data_rows:
+                if len(row) < num_cols:
+                    row = row + [""] * (num_cols - len(row))
+                else:
+                    row = row[:num_cols]
+                filas_limpias.append(row)
+
+            df = pd.DataFrame(filas_limpias, columns=nombres_mapeados).astype(str)
+            
+            for col in df.columns:
+                df[col] = df[col].str.replace(".0", "", regex=False)
+                df[col] = df[col].replace(["nan", "None", "<NA>", "null"], "")
+                df[col] = df[col].str.strip()
+
+            return df
+        except Exception as e:
+            st.error(f"Error al procesar y ordenar la estructura de la hoja: {e}")
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+if "df_lideres" not in st.session_state or st.session_state.df_lideres.empty:
+    st.session_state.df_lideres = cargar_datos()
+
+df_lideres = st.session_state.df_lideres
+
+# ------------------------------------------------------------------------------
 # FUNCIONES AUXILIARES Y DE EXPORTACIÓN PDF
 # ------------------------------------------------------------------------------
 NOMBRES_MESES = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
@@ -248,14 +256,28 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     proximos = []
     col_dia, col_mes = None, None
     
+    # Detección precisa de columnas de Día y Mes
     for col in df.columns:
         col_n = normalizar(col)
-        if "cumple" in col_n or col_n in ["dia", "day"]: col_dia = col
-        elif "mes" in col_n or col_n in ["month"]: col_mes = col
+        if ("dia" in col_n or "day" in col_n) and "mes" not in col_n:
+            col_dia = col
+        elif ("mes" in col_n or "month" in col_n) and "dia" not in col_n:
+            col_mes = col
+
+    # Fallback si no hay nombres específicos
+    if not col_dia or not col_mes:
+        for col in df.columns:
+            col_n = normalizar(col)
+            if "cumple" in col_n:
+                if not col_dia: col_dia = col
+                elif not col_mes: col_mes = col
+
+    if not col_dia or not col_mes:
+        return []
 
     for idx, row in df.iterrows():
-        val_dia = str(row[col_dia]).strip() if col_dia else ""
-        val_mes = str(row[col_mes]).strip() if col_mes else ""
+        val_dia = str(row[col_dia]).strip()
+        val_mes = str(row[col_mes]).strip()
         dia, mes = None, None
         
         if "/" in val_dia or "-" in val_dia:
@@ -278,7 +300,7 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
                     proximos.append({
                         "nombre": f"{nombres} {apellidos}".strip().upper() or "Usuario sin nombre",
                         "dias": diferencia,
-                        "fecha_str": f"{dia} de {NOMBRES_MESES[mes]}",
+                        "fecha_str": f"{dia} de {NOMBRES_MESES.get(mes, '')}",
                         "telefono": obtener_valor_campo(row, df.columns, ["telefono", "celular"]),
                         "dependencia": obtener_valor_campo(row, df.columns, ["dependencia", "secretaria"])
                     })
@@ -379,12 +401,24 @@ menu = st.sidebar.radio(
 if menu == "🔍 Consulta Detallada":
     st.subheader("🔍 Consulta Detallada de Líderes")
     if not df_lideres.empty:
-        criterio = st.radio("Buscar por:", ["Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
+        criterio = st.radio("Buscar por:", ["Todos los campos", "Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
         resultado = pd.DataFrame()
         
         busqueda = st.text_input("Ingrese término de búsqueda:")
         if busqueda.strip():
-            mask = df_lideres.astype(str).apply(lambda row: row.str.contains(busqueda.strip(), case=False, na=False)).any(axis=1)
+            term = busqueda.strip().lower()
+            
+            if criterio == "Cédula / Identificación":
+                cols_target = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["cedula", "identificacion", "doc", "id"])]
+            elif criterio == "Nombre / Apellido":
+                cols_target = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["nombre", "apellido"])]
+            else:
+                cols_target = df_lideres.columns.tolist()
+
+            if not cols_target:
+                cols_target = df_lideres.columns.tolist()
+
+            mask = df_lideres[cols_target].astype(str).apply(lambda row: row.str.contains(term, case=False, na=False)).any(axis=1)
             resultado = df_lideres[mask]
 
         if not resultado.empty:
@@ -481,7 +515,7 @@ if menu == "🔍 Consulta Detallada":
 
                 st.markdown("---")
         elif busqueda:
-            st.warning("⚠️ No se localizó ningún registro.")
+            st.warning("⚠️ No se localizó ningún registro con el término especificado.")
 
 # ==============================================================================
 # MÓDULO 2: PANEL DE CONTROL EJECUTIVOS
@@ -500,6 +534,42 @@ elif menu == "📈 Panel de Control Ejecutivos":
         kpi3.metric("📍 Municipios Cubiertos", total_municipios)
         kpi4.metric("🟢 Estado Conexión", "Sincronizado vía API")
         st.markdown("---")
+
+        # Gráficos Analíticos
+        col_g1, col_g2 = st.columns(2)
+        
+        # Gráfico 1: Líderes por Dependencia/Secretaría o Comuna
+        col_dep = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["dependencia", "secretaria", "comuna", "barrio"])]
+        if col_dep:
+            target_col = col_dep[0]
+            conteo_dep = df_lideres[target_col].replace("", "Sin Especificar").value_counts().head(10).reset_index()
+            conteo_dep.columns = [target_col, "Cantidad"]
+            
+            fig1 = px.bar(
+                conteo_dep, x=target_col, y="Cantidad",
+                title=f"Distribución de Líderes por {target_col}",
+                color="Cantidad", color_continuous_scale="Blues"
+            )
+            fig1.update_layout(xaxis_title="", yaxis_title="Líderes", template="plotly_white")
+            col_g1.plotly_chart(fig1, use_container_width=True)
+
+        # Gráfico 2: Top Líderes con más Amigos/Registros
+        if col_amigos:
+            amigos_col = col_amigos[0]
+            col_nombres = [c for c in df_lideres.columns if "NOMBRE" in c.upper()]
+            nom_col = col_nombres[0] if col_nombres else df_lideres.columns[0]
+            
+            df_temp = df_lideres.copy()
+            df_temp["Amigos_Num"] = pd.to_numeric(df_temp[amigos_col], errors='coerce').fillna(0)
+            top_lideres = df_temp.sort_values(by="Amigos_Num", ascending=False).head(10)
+            
+            fig2 = px.bar(
+                top_lideres, x=nom_col, y="Amigos_Num",
+                title="Top 10 Líderes por Número de Registros / Amigos",
+                color="Amigos_Num", color_continuous_scale="Oranges"
+            )
+            fig2.update_layout(xaxis_title="Líder", yaxis_title="N° Amigos", template="plotly_white")
+            col_g2.plotly_chart(fig2, use_container_width=True)
 
 # ==============================================================================
 # MÓDULO 3: REGISTRO DE NUEVO USUARIO
@@ -550,7 +620,7 @@ elif menu == "✏️ Editar / Modificar Registros":
                 user_idx = idx_match[0]
                 usuario_data = df_lideres.loc[user_idx]
                 
-                st.success(f"👤 Usuario localizado (Fila #{user_idx + 1}). Modifique los campos necesarios:")
+                st.success(f"👤 Usuario localizado (Índice #{user_idx + 1}). Modifique los campos necesarios:")
                 
                 with st.form("form_editar_usuario"):
                     nuevos_datos = {}
@@ -568,10 +638,12 @@ elif menu == "✏️ Editar / Modificar Registros":
                     if btn_guardar_cambios:
                         sheet = conectar_google_sheets()
                         if sheet:
-                            num_fila_sheet = user_idx + 3
+                            # Cálculo dinámico de fila según el número de encabezados detectados
+                            offset = st.session_state.get("header_offset", 1)
+                            num_fila_sheet = user_idx + offset + 1
                             valores_actualizados = [str(nuevos_datos.get(col, "")) for col in cols]
                             
-                            sheet.update(f"A{num_fila_sheet}", [valores_actualizados])
+                            actualizar_hoja_gspread(sheet, f"A{num_fila_sheet}", [valores_actualizados])
                             
                             for col_name, val_nuevo in nuevos_datos.items():
                                 st.session_state.df_lideres.at[user_idx, col_name] = val_nuevo
@@ -611,18 +683,23 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
                 with st.spinner("Guardando y actualizando base de datos en Google Sheets..."):
                     sheet = conectar_google_sheets()
                     if sheet:
-                        df_para_guardar = df_modificado.fillna("").astype(str)
-                        
+                        # 1. Aplicar cambios respetando los datos no visibles si había un filtro
+                        if filtro_tabla.strip():
+                            st.session_state.df_lideres.update(df_modificado)
+                            df_para_guardar = st.session_state.df_lideres.fillna("").astype(str)
+                        else:
+                            st.session_state.df_lideres = df_modificado.fillna("").astype(str)
+                            df_para_guardar = st.session_state.df_lideres
+
+                        # 2. Reescritura segura en Google Sheets
                         sheet.clear()
-                        
                         encabezados = df_para_guardar.columns.tolist()
                         filas = df_para_guardar.values.tolist()
                         
-                        sheet.update("A1", [encabezados] + filas)
+                        actualizar_hoja_gspread(sheet, "A1", [encabezados] + filas)
+                        st.session_state.header_offset = 1 # Estructura unificada a 1 sola fila de encabezado
                         
-                        st.session_state.df_lideres = df_para_guardar
-                        
-                        st.success("✅ ¡Todos los cambios se guardaron en Google Sheets!")
+                        st.success("✅ ¡Todos los cambios se guardaron en Google Sheets sin pérdida de datos!")
                         st.rerun()
 
         with col_btn2:
@@ -634,5 +711,3 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
                 mime="text/csv",
                 use_container_width=False
             )
-    else:
-        st.info("No hay datos cargados para mostrar.")
