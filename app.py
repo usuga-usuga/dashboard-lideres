@@ -227,20 +227,13 @@ def generar_pdf_ficha(row, df_columns):
     story.append(Paragraph(f"Cédula / ID: <b>{cedula}</b>", subtitle_style))
     story.append(Spacer(1, 12))
     
-    data = [
-        [Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])],
-        ["Dependencia", obtener_valor_campo(row, df_columns, ['dependencia', 'area'])],
-        ["Secretaría", obtener_valor_campo(row, df_columns, ['secretaria'])],
-        ["Cargo", obtener_valor_campo(row, df_columns, ['cargo'])],
-        ["Profesión", obtener_valor_campo(row, df_columns, ['profesion'])],
-        ["Teléfono / Celular", obtener_valor_campo(row, df_columns, ['telefono', 'celular'])],
-        ["Correo Electrónico", obtener_valor_campo(row, df_columns, ['correo', 'email'])],
-        ["Comuna / Barrio", f"{obtener_valor_campo(row, df_columns, ['comuna'])} - {obtener_valor_campo(row, df_columns, ['barrio'])}"],
-        ["Municipio", obtener_valor_campo(row, df_columns, ['municipio'])],
-        ["Fecha Cumpleaños", obtener_fecha_cumpleanos_formateada(row, df_columns)],
-        ["No. Amigos", obtener_valor_campo(row, df_columns, ['amigos'], '0')],
-        ["Observaciones / Notas", obtener_valor_campo(row, df_columns, ['nota', 'observacion'])]
-    ]
+    data = [[Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])]]
+    
+    # Exportar todas las columnas no vacías al PDF
+    for col in df_columns:
+        val = str(row[col]).strip()
+        if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
+            data.append([str(col), val])
     
     table = Table(data, colWidths=[180, 340])
     table.setStyle(TableStyle([
@@ -345,7 +338,7 @@ if menu == "🔍 Consulta Detallada":
                             use_container_width=True
                         )
 
-                    # --- Fila 1 de Información ---
+                    # --- Fila 1 de Información Principal ---
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         with st.container(border=True):
@@ -387,6 +380,19 @@ if menu == "🔍 Consulta Detallada":
                             st.markdown(f"**No. Amigos:** {obtener_valor_campo(row, df_lideres.columns, ['amigos', 'no. amigos', 'nro amigos'], '0')}")
                             st.markdown(f"**Municipio de Bello:** {obtener_valor_campo(row, df_lideres.columns, ['bello', 'municipio de bello'])}")
                             st.markdown(f"**Otros Municipios:** {obtener_valor_campo(row, df_lideres.columns, ['otros municipios', 'otros'])}")
+
+                    # --- Fila 3: DESPLIEGUE DINÁMICO DE TODOS LOS CAMPOS (Garantiza 100% de la información) ---
+                    with st.expander("📂 **Ver Todos los Campos Registrar de la Hoja de Cálculo**"):
+                        datos_completos = []
+                        for col_name in df_lideres.columns:
+                            val_celda = str(row[col_name]).strip()
+                            if val_celda and val_celda.lower() not in ["nan", "none", "<na>", "null"]:
+                                datos_completos.append({"Campo / Columna": col_name, "Valor Registrado": val_celda})
+                        
+                        if datos_completos:
+                            st.table(pd.DataFrame(datos_completos))
+                        else:
+                            st.info("No hay campos adicionales registrados.")
 
                     # Botón de enlace PDF (si existe)
                     url_pdf_val = obtener_valor_campo(row, df_lideres.columns, ['url_pdf', 'pdf', 'link', 'planilla'], "Sin datos")
