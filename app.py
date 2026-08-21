@@ -495,22 +495,39 @@ elif menu == "🎂 Cumpleaños Próximos":
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
     
-    # Inyección CSS para corregir contraste del formulario y etiquetas
+    # Inyección de CSS agresiva para forzar legibilidad y eliminar fondos blancos no deseados
     st.markdown(
         """
         <style>
-        div[data-testid="stForm"] {
-            background-color: #0E1117 !important;
+        /* Forzar que la caja contenedora del formulario sea oscura */
+        div[data-testid="stForm"], .stForm {
+            background-color: #161B22 !important;
             border: 1px solid #30363D !important;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 10px !important;
+            padding: 20px !important;
         }
-        div[data-testid="stForm"] label, 
+
+        /* Forzar que TODOS los textos, etiquetas y títulos del formulario sean oscuros/negros o blanco brillante */
+        div[data-testid="stForm"] label,
         div[data-testid="stForm"] label p,
+        div[data-testid="stForm"] label span,
+        div[data-testid="stForm"] h1,
+        div[data-testid="stForm"] h2,
+        div[data-testid="stForm"] h3,
         div[data-testid="stForm"] h4,
-        div[data-testid="stForm"] strong {
-            color: #F0F6FC !important;
+        div[data-testid="stForm"] strong,
+        div[data-testid="stForm"] p {
+            color: #FFFFFF !important;
             font-weight: 600 !important;
+            opacity: 1 !important;
+        }
+
+        /* Estilo de las cajas de texto */
+        div[data-testid="stForm"] input, 
+        div[data-testid="stForm"] textarea {
+            background-color: #0D1117 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #484F58 !important;
         }
         </style>
         """,
