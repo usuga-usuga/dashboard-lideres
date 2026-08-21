@@ -472,7 +472,20 @@ elif menu == "🎂 Cumpleaños Próximos":
                     continue
 
         if cumples:
-            st.table(pd.DataFrame(cumples))
+            df_cumples = pd.DataFrame(cumples)
+
+            # Función para colorear la fila completa si es ¡HOY! 🎉
+            def resaltar_hoy(row):
+                if row["Días Faltantes"] == "¡HOY! 🎉":
+                    return ['background-color: #B45309; color: #FFFFFF; font-weight: bold;'] * len(row)
+                return [''] * len(row)
+
+            # Aplicar estilo a la tabla
+            st.dataframe(
+                df_cumples.style.apply(resaltar_hoy, axis=1),
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.success("🎈 No hay cumpleaños registrados para hoy o los próximos 5 días.")
 
