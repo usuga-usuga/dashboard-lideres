@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 # -----------------------------------------------------------------------------
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN DE PÁGINA Y CORRECCIÓN DE COLORES
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Plataforma de Gestión de Líderes",
@@ -11,19 +11,17 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------------------------------------------------------
-# 2. PARCHE DE ESTILOS CSS (REPARACIÓN DE CONTRASTE Y COLORES)
-# -----------------------------------------------------------------------------
+# Estilos CSS globales solo para corregir contraste de texto y métricas
 st.markdown(
     """
     <style>
-    /* Fondo principal de la app */
+    /* Forzar fondo oscuro suave en toda la app para alto contraste */
     .stApp, [data-testid="stAppViewContainer"] {
         background-color: #0F172A !important;
         color: #F8FAFC !important;
     }
 
-    /* FIX PARA TARJETAS DE MÉTRICAS (st.metric) EN DASHBOARD */
+    /* Tarjetas de métricas del Dashboard */
     div[data-testid="stMetric"], 
     div[data-testid="metric-container"],
     .stMetric {
@@ -34,7 +32,7 @@ st.markdown(
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3) !important;
     }
 
-    /* Texto superior / Título de la métrica */
+    /* Títulos y valores de las métricas */
     div[data-testid="stMetric"] [data-testid="stMetricLabel"] *,
     div[data-testid="stMetricLabel"] * {
         color: #38BDF8 !important;
@@ -42,7 +40,6 @@ st.markdown(
         font-size: 0.95rem !important;
     }
 
-    /* Número / Valor de la métrica */
     div[data-testid="stMetric"] [data-testid="stMetricValue"] *,
     div[data-testid="stMetricValue"] * {
         color: #FFFFFF !important;
@@ -50,7 +47,7 @@ st.markdown(
         font-size: 1.8rem !important;
     }
 
-    /* FIX PARA FORMULARIOS (st.form) Y CONTENEDORES EN EDICIÓN */
+    /* Formulario y contenedor de edición */
     div[data-testid="stForm"], .stForm, form {
         background-color: #1E293B !important;
         border: 1px solid #334155 !important;
@@ -58,7 +55,7 @@ st.markdown(
         padding: 24px !important;
     }
 
-    /* Forzar visibilidad y color en TODOS los textos y etiquetas */
+    /* Visibilidad de etiquetas y textos */
     p, span, label, h1, h2, h3, h4, h5, h6,
     [data-testid="stForm"] label,
     [data-testid="stForm"] .stWidgetLabel p {
@@ -67,13 +64,12 @@ st.markdown(
         opacity: 1 !important;
     }
 
-    /* Subtítulos dentro del formulario */
     [data-testid="stSubheader"] *, .stSubheader * {
         color: #38BDF8 !important;
         font-weight: 700 !important;
     }
 
-    /* Cajas de texto e inputs */
+    /* Inputs y campos de texto */
     input[type="text"], input[type="number"], textarea, select {
         background-color: #0F172A !important;
         color: #FFFFFF !important;
@@ -81,23 +77,23 @@ st.markdown(
         border-radius: 6px !important;
     }
 
-    input:focus, textarea:focus {
-        border-color: #38BDF8 !important;
-        outline: none !important;
+    /* Tarjetas Destacadas de Cumpleaños Estéticas */
+    .cumple-card {
+        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+        border-left: 5px solid #F43F5E;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15);
     }
-
-    /* Botón de guardar cambios */
-    div[data-testid="stForm"] button[type="submit"] {
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        border: none !important;
-        font-weight: bold !important;
-        border-radius: 8px !important;
-        padding: 10px 20px !important;
+    .cumple-nombre {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #F43F5E;
     }
-
-    div[data-testid="stForm"] button[type="submit"]:hover {
-        background-color: #1D4ED8 !important;
+    .cumple-info {
+        font-size: 0.95rem;
+        color: #E2E8F0;
     }
     </style>
     """,
@@ -105,7 +101,7 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# 3. FUNCIONES DE APOYO Y DATOS EN SESSION_STATE
+# 2. FUNCIONES DE APOYO Y CARGA DE DATOS
 # -----------------------------------------------------------------------------
 def limpiar_valor(val):
     if pd.isna(val):
@@ -128,7 +124,7 @@ def cargar_datos_iniciales():
         "Apellidos": ["USUGA USUGA", "GOMEZ"],
         "No. Telefono": ["3017732219", "3000000000"],
         "Correo Electronico": ["usuga03@gmail.com", "maria@gmail.com"],
-        "Fecha de Cumpleanos": ["1985-05-12", "1990-08-25"],
+        "Fecha de Cumpleanos": ["1985-08-12", "1990-08-25"],
         "Redes Sociales": ["@wilfredo", "@maria"],
         "Dependencia": ["Municipio", "Salud"],
         "Secretaria y/o Dependencia": ["Edunorte", "Gobierno"],
@@ -158,7 +154,7 @@ if "df_lideres" not in st.session_state:
 df_lideres = st.session_state.df_lideres
 
 # -----------------------------------------------------------------------------
-# 4. MENÚ DE NAVEGACIÓN COMPLETO ORIGINAL
+# 3. MENÚ DE NAVEGACIÓN COMPLETO ORIGINAL
 # -----------------------------------------------------------------------------
 st.sidebar.title("📌 Menú Principal")
 menu = st.sidebar.radio(
@@ -174,7 +170,7 @@ menu = st.sidebar.radio(
 )
 
 # -----------------------------------------------------------------------------
-# 5. MÓDULO 1: DASHBOARD GENERAL
+# 4. MÓDULO 1: DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
 if menu == "📊 Dashboard General":
     st.title("📊 Dashboard General de Líderes")
@@ -200,7 +196,7 @@ if menu == "📊 Dashboard General":
     st.dataframe(df_lideres, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. MÓDULO 2: BUSCAR LÍDER
+# 5. MÓDULO 2: BUSCAR LÍDER
 # -----------------------------------------------------------------------------
 elif menu == "🔍 Buscar Líder":
     st.title("🔍 Buscar Información de Líder")
@@ -217,7 +213,7 @@ elif menu == "🔍 Buscar Líder":
             st.warning("No se encontró ningún registro con esa cédula.")
 
 # -----------------------------------------------------------------------------
-# 7. MÓDULO 3: AGREGAR LÍDER
+# 6. MÓDULO 3: AGREGAR LÍDER
 # -----------------------------------------------------------------------------
 elif menu == "➕ Agregar Líder":
     st.title("➕ Agregar Nuevo Líder")
@@ -250,7 +246,7 @@ elif menu == "➕ Agregar Líder":
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# 8. MÓDULO 4: EDITAR LÍDER
+# 7. MÓDULO 4: EDITAR LÍDER
 # -----------------------------------------------------------------------------
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
@@ -356,7 +352,7 @@ elif menu == "✏️ Editar Líder":
                 st.info("No se encontró ningún registro con esa cédula.")
 
 # -----------------------------------------------------------------------------
-# 9. MÓDULO 5: CONSULTA AVANZADA
+# 8. MÓDULO 5: CONSULTA AVANZADA
 # -----------------------------------------------------------------------------
 elif menu == "🔎 Consulta Avanzada":
     st.title("🔎 Consulta Avanzada de Registros")
@@ -376,7 +372,7 @@ elif menu == "🔎 Consulta Avanzada":
     st.dataframe(df_filtrado, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 10. MÓDULO 6: CUMPLEAÑOS
+# 9. MÓDULO 6: CUMPLEAÑOS (CON RESALTE ESTÉTICO)
 # -----------------------------------------------------------------------------
 elif menu == "🎂 Cumpleaños":
     st.title("🎂 Consulta de Cumpleaños del Mes")
@@ -385,9 +381,10 @@ elif menu == "🎂 Cumpleaños":
         1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
         7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
-    mes_sel = st.selectbox("Seleccione el mes a consultar:", list(meses.values()))
     
-    # Obtener el número de mes seleccionado
+    # Seleccionar mes actual por defecto
+    mes_actual = datetime.now().month
+    mes_sel = st.selectbox("Seleccione el mes a consultar:", list(meses.values()), index=mes_actual-1)
     num_mes = [k for k, v in meses.items() if v == mes_sel][0]
     
     df_cumple = df_lideres.copy()
@@ -396,7 +393,28 @@ elif menu == "🎂 Cumpleaños":
     cumpleaneros = df_cumple[df_cumple["Fecha_dt"].dt.month == num_mes]
     
     if not cumpleaneros.empty:
-        st.success(f"Líderes que cumplen años en {mes_sel}:")
+        st.subheader(f"🎉 Cumpleañeros Destacados en {mes_sel}")
+        
+        # Tarjetas destacadas muy estéticas para cada cumpleañero
+        for _, persona in cumpleaneros.iterrows():
+            nombre_completo = f"{valor(persona, 'Nombres')} {valor(persona, 'Apellidos')}"
+            fecha_cumple = valor(persona, 'Fecha de Cumpleanos')
+            telefono = valor(persona, 'No. Telefono')
+            barrio = valor(persona, 'Barrio')
+            
+            st.markdown(
+                f"""
+                <div class="cumple-card">
+                    <div class="cumple-nombre">🎂 {nombre_completo}</div>
+                    <div class="cumple-info">
+                        📅 <b>Fecha:</b> {fecha_cumple} | 📞 <b>Teléfono:</b> {telefono} | 📍 <b>Barrio:</b> {barrio}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+        st.markdown("---")
         st.dataframe(cumpleaneros[["Nombres", "Apellidos", "No. Telefono", "Fecha de Cumpleanos", "Barrio"]], use_container_width=True)
     else:
         st.info(f"No hay registrados cumpleaños para el mes de {mes_sel}.")
