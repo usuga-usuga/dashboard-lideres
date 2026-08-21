@@ -115,12 +115,12 @@ def get_gspread_client():
 def get_worksheet():
     client = get_gspread_client()
     
-    # 1. Método A: Apertura segura por ID (evita error de búsqueda en Drive API)
+    # 1. Apertura segura por ID (evita requerir Google Drive API)
     if "spreadsheet_id" in st.secrets and st.secrets["spreadsheet_id"].strip():
         sheet_id = st.secrets["spreadsheet_id"].strip()
         return client.open_by_key(sheet_id).sheet1
 
-    # 2. Método B: Caída por nombre de archivo
+    # 2. Búsqueda por nombre de archivo
     sheet_name = st.secrets.get("spreadsheet_title", "Base Datos LIDERES")
     return client.open(sheet_name).sheet1
 
@@ -239,7 +239,7 @@ def generar_pdf_ficha(row):
     elements.append(make_table({
         "Comuna": valor(row, "Comuna"),
         "Barrio": valor(row, "Barrio"),
-        "Municipio": valor(row, "MUNICIPIO")
+        "Municipio Proyectado": valor(row, "MUNICIPIO")
     }))
 
     elements.append(Paragraph("📊 Métricas Electoral y Proyección", style_sec))
@@ -385,7 +385,7 @@ elif menu == "🔍 Consulta Detallada":
                         st.markdown(
                             f"**Comuna:** {valor(row, 'Comuna')}\n\n"
                             f"**Barrio:** {valor(row, 'Barrio')}\n\n"
-                            f"**Municipio:** {valor(row, 'MUNICIPIO')}"
+                            f"**Municipio Proyectado:** {valor(row, 'MUNICIPIO')}"
                         )
                     with c4:
                         st.markdown("### 📊 Votación y Redes")
@@ -463,7 +463,7 @@ elif menu == "➕ Crear Nuevo Registro":
             cumple = st.date_input("Fecha de Cumpleaños", value=None)
             comuna = st.text_input("Comuna")
             barrio = st.text_input("Barrio")
-            municipio = st.text_input("Municipio")
+            municipio = st.text_input("Municipio Proyectado")
             amigos = st.number_input("Total Amigos", min_value=0, step=1)
             proyeccion = st.number_input("Proyección", min_value=0, step=1)
             url_pdf = st.text_input("URL PDF Planilla")
@@ -520,6 +520,7 @@ elif menu == "✏️ Editar por Cédula":
                     correo = st.text_input("Correo", value=valor(row_data, "Correo Electronico", ""))
                     comuna = st.text_input("Comuna", value=valor(row_data, "Comuna", ""))
                     barrio = st.text_input("Barrio", value=valor(row_data, "Barrio", ""))
+                    municipio = st.text_input("Municipio Proyectado", value=valor(row_data, "MUNICIPIO", ""))
                     amigos = st.number_input("No. Amigos", value=int(row_data.get("No. Amigos", 0)))
                     proyeccion = st.number_input("Proyección", value=int(row_data.get("PROYECCION", 0)))
                     url_pdf = st.text_input("URL PDF Planilla", value=valor(row_data, "URL_PDF", ""))
@@ -539,6 +540,7 @@ elif menu == "✏️ Editar por Cédula":
                     ws.update_cell(sheet_row, 13, comuna)
                     ws.update_cell(sheet_row, 14, barrio)
                     ws.update_cell(sheet_row, 18, proyeccion)
+                    ws.update_cell(sheet_row, 20, municipio)
                     ws.update_cell(sheet_row, 22, amigos)
                     ws.update_cell(sheet_row, 27, url_pdf)
                     
