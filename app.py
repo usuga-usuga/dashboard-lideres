@@ -372,9 +372,12 @@ elif menu == "🔍 Consulta Detallada":
                         safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", cedula)
                         st.download_button("📄 Descargar Ficha PDF", data=pdf_file, file_name=f"Ficha_{safe_id or idx}.pdf", mime="application/pdf", key=f"pdf_{idx}")
 
-                    c1, c2, c3, c4 = st.columns(4)
-                    with c1:
-                        st.markdown("### 📌 Información Laboral")
+                    st.markdown("---")
+
+                    # Fila 1: Datos Principales (Laboral, Contacto, Ubicación)
+                    col_lab, col_con, col_ubi = st.columns(3)
+                    with col_lab:
+                        st.markdown("### 📌 Datos Principales")
                         st.markdown(
                             f"**Dependencia:** {valor(row, 'Dependencia')}\n\n"
                             f"**Secretaría:** {valor(row, 'Secretaria y/o Dependencia')}\n\n"
@@ -382,7 +385,7 @@ elif menu == "🔍 Consulta Detallada":
                             f"**Profesión:** {valor(row, 'Profesion')}\n\n"
                             f"**Equipo Apoyo:** {valor(row, 'Apoyo')}"
                         )
-                    with c2:
+                    with col_con:
                         st.markdown("### 📞 Contacto")
                         st.markdown(
                             f"**Teléfono:** {valor(row, 'No. Telefono')}\n\n"
@@ -390,26 +393,50 @@ elif menu == "🔍 Consulta Detallada":
                             f"**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n"
                             f"**Redes Sociales:** {valor(row, 'Redes Sociales')}"
                         )
-                    with c3:
+                    with col_ubi:
                         st.markdown("### 📍 Ubicación")
                         st.markdown(
                             f"**Comuna:** {valor(row, 'Comuna')}\n\n"
                             f"**Barrio:** {valor(row, 'Barrio')}"
                         )
-                    with c4:
-                        st.markdown("### 📊 Votación y Redes")
+
+                    st.markdown("---")
+
+                    # Fila 2: Categorías Específicas de la Hoja
+                    col_vot, col_proy, col_plan = st.columns(3)
+                    
+                    with col_vot:
+                        st.markdown("### 🗳️ Votantes")
                         st.markdown(
-                            f"**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}\n\n"
+                            f"**Bello:** {valor(row, 'Bello', '0')}\n\n"
+                            f"**Otros:** {valor(row, 'Otros', '0')}\n\n"
+                            f"**Total:** {valor(row, 'Total', '0')}"
+                        )
+
+                    with col_proy:
+                        st.markdown("### 📈 Proyección y Notas")
+                        st.markdown(
                             f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n"
+                            f"**Registros:** {valor(row, 'REGISTROS', '0')}\n\n"
                             f"**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n"
-                            f"**Votos Bello:** {valor(row, 'Bello', '0')}\n\n"
-                            f"**Votos Otros:** {valor(row, 'Otros', '0')}\n\n"
-                            f"**Total Potencial:** {valor(row, 'Total', '0')}"
+                            f"**Notas:** {valor(row, 'NOTAS', 'Sin notas')}"
+                        )
+
+                    with col_plan:
+                        st.markdown("### 📋 Planillas y Registros")
+                        st.markdown(
+                            f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n"
+                            f"**Otros Municipios - Deptos:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n"
+                            f"**No está en el censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n"
+                            f"**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n"
+                            f"**Total No. Amigos:** {valor(row, 'Total No. Amigos', '0')}"
                         )
 
                     url = valor(row, "URL_PDF", "")
                     if url.startswith(("http://", "https://")):
+                        st.markdown("---")
                         st.link_button("🔗 Abrir PDF Planilla", url)
+
         elif busqueda.strip():
             st.info("No se encontraron registros que coincidan con la búsqueda.")
 
