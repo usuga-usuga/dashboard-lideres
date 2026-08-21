@@ -1,5 +1,11 @@
+import streamlit as st
+import pandas as pd  # O las demás librerías que uses en tu script
+
+# Configuración de página (debe ser el primer comando 'st')
+st.set_page_config(page_title="Gestión de Líderes", layout="wide")
+
 # ==========================================
-# FIX VISUAL DE COLORES Y CONTRASTE (AGREGAR AL INICIO)
+# FIX VISUAL DE COLORES Y CONTRASTE
 # ==========================================
 st.markdown(
     """
@@ -21,7 +27,7 @@ st.markdown(
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3) !important;
     }
 
-    /* Texto superior / Titulo de la métrica */
+    /* Texto superior / Título de la métrica */
     div[data-testid="stMetric"] [data-testid="stMetricLabel"] *,
     div[data-testid="stMetricLabel"] * {
         color: #38BDF8 !important;
@@ -76,6 +82,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# A PARTIR DE AQUÍ CONTINÚA TODO TU CÓDIGO ORIGINAL TAL CUAL LO TENÍAS
 import streamlit as st
 import pandas as pd
 
