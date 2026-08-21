@@ -41,11 +41,11 @@ COLUMNAS = [
     "Correo Electronico",
     "Redes Sociales",
     "Fecha de Cumpleanos",
-    "Total",
-    "Bello",
-    "Otros",
-    "Comuna",
-    "Barrio",
+    "Comuna",                    # <-- Ajustado: Posición 12
+    "Barrio",                    # <-- Ajustado: Posición 13
+    "Bello",                     # <-- Ajustado: Posición 14
+    "Otros",                     # <-- Ajustado: Posición 15
+    "Total",                     # <-- Ajustado: Posición 16
     "PROYECCION",
     "REGISTROS",
     "MUNICIPIO",
