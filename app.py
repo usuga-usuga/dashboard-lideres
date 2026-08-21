@@ -3,319 +3,287 @@ import pandas as pd
 import unicodedata
 from datetime import datetime, date
 import io
-import html
 import re
+import html
 import hmac
 import plotly.express as px
 import gspread
 
-# ReportLab para la exportación de PDF
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# ------------------------------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# CONFIGURACIÓN
+# ==============================================================================
 st.set_page_config(
     page_title="Dashboard Ejecutivo de Líderes",
     page_icon="📊",
     layout="wide"
 )
 
-# ------------------------------------------------------------------------------
-# ESTILO Y TEMA VISUAL
-# ------------------------------------------------------------------------------
-st.markdown("""
-    <style>
-    .stApp { background-color: #F8FAFC !important; }
-    .stApp p, .stApp span, .stApp label, .stApp div, .stApp caption, .stMarkdown { color: #1E293B !important; }
-    h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important; }
-    
-    [data-testid="stSidebar"] { background-color: #0F172A !important; }
-    [data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #FFFFFF !important; }
-    [data-testid="stSidebar"] .stButton > button { background-color: #1E293B !important; color: #FFFFFF !important; border: 1px solid #334155 !important; border-radius: 8px !important; }
-    [data-testid="stSidebar"] .stButton > button:hover { background-color: #F59E0B !important; border-color: #D97706 !important; color: #FFFFFF !important; }
-    
-    [data-testid="stVerticalBlock"] > div[data-testid="stBlock"], div[data-testid="stForm"], .stCard { 
-        background-color: #FFFFFF !important; 
-        border-radius: 12px !important; 
-        padding: 18px !important; 
-        border: 1px solid #E2E8F0 !important; 
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.03) !important; 
-    }
-    
-    [data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
-    [data-testid="stMetricLabel"] p { color: #475569 !important; font-weight: 700 !important; }
-    
-    div.stDownloadButton > button, 
-    div.stButton > button, 
-    div[data-testid="stLinkButton"] > a {
-        background-color: #1E3A8A !important;
-        color: #FFFFFF !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 8px 16px !important;
-        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.08) !important;
-        transition: all 0.2s ease-in-out !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        text-decoration: none !important;
-        width: auto !important;
-    }
-    
-    div.stDownloadButton > button:hover, 
-    div.stButton > button:hover, 
-    div[data-testid="stLinkButton"] > a:hover {
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.12) !important;
-        transform: translateY(-1px);
-        text-decoration: none !important;
-    }
-    
-    div.stDownloadButton > button p, 
-    div.stButton > button p, 
-    div[data-testid="stLinkButton"] > a p,
-    div[data-testid="stLinkButton"] > a span {
-        color: #FFFFFF !important;
-        margin: 0 !important;
-    }
+SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
+SHEET_NAME = "BD Cumple"
 
-    input { color: #0F172A !important; background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; }
-    </style>
+# IMPORTANTE:
+# Estos son los encabezados REALES de la base entregada.
+# No se generan nombres por posición ni se adivinan columnas.
+COLUMNAS = [
+    "No. Identificación",
+    "Nombres",
+    "Apellidos",
+    "No. Teléfono",
+    "Dependencia",
+    "Secretaría y/o Dependencia",
+    "Apoyo",
+    "Profesión",
+    "Cargo actual",
+    "Correo Electrónico",
+    "Redes Sociales",
+    "Fecha de Cumpleaños",
+    "Total",
+    "Bello",
+    "Otros",
+    "Comuna",
+    "Barrio",
+    "PROYECCIÓN",
+    "REGISTROS",
+    "MUNICIPIO",
+    "NOTAS",
+    "No. Amigos",
+    "MUNICIPIO DE BELLO",
+    "OTROS MUNICIPIOS - DEPTOS",
+    "NO ESTA EN EL CENSO",
+    "CEDULA ERRONEA",
+    "URL_PDF",
+]
+
+# Las dos filas superiores de la hoja original contienen encabezados.
+# Se conservan exactamente al guardar.
+ENCABEZADOS_SUPERIORES = [
+    "No. Identificación", "Nombres", "Apellidos", "No. Teléfono",
+    "Dependencia", "Secretaría y/o Dependencia", "Apoyo", "Profesión",
+    "Cargo actual", "Correo Electrónico", "Redes Sociales",
+    "Fecha de Cumpleaños", "Total", "Bello", "Otros", "Comuna", "Barrio",
+    "PROYECCIÓN Y NOTAS", "", "", "", "PLANILLAS Y REGISTROS", "", "", "", "",
+    "URL_PDF"
+]
+ENCABEZADOS_INFERIORES = [
+    "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+    "PROYECCIÓN", "REGISTROS", "MUNICIPIO", "NOTAS", "No. Amigos",
+    "MUNICIPIO DE BELLO", "OTROS MUNICIPIOS - DEPTOS",
+    "NO ESTA EN EL CENSO", "CEDULA ERRONEA", ""
+]
+
+# ==============================================================================
+# ESTILO
+# ==============================================================================
+st.markdown("""
+<style>
+.stApp { background-color: #F8FAFC !important; }
+.stApp p, .stApp span, .stApp label, .stApp div, .stApp caption, .stMarkdown { color: #1E293B !important; }
+h1, h2, h3, h4, h5, h6 { color: #0F172A !important; font-weight: 700 !important; }
+[data-testid="stSidebar"] { background-color: #0F172A !important; }
+[data-testid="stSidebar"] *, [data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label, [data-testid="stSidebar"] span { color: #FFFFFF !important; }
+[data-testid="stSidebar"] .stButton > button {
+    background-color: #1E293B !important; color: #FFFFFF !important;
+    border: 1px solid #334155 !important; border-radius: 8px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #F59E0B !important; border-color: #D97706 !important;
+    color: #FFFFFF !important;
+}
+[data-testid="stVerticalBlock"] > div[data-testid="stBlock"],
+div[data-testid="stForm"], .stCard {
+    background-color: #FFFFFF !important;
+    border-radius: 12px !important;
+    padding: 18px !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0px 4px 10px rgba(0,0,0,.03) !important;
+}
+[data-testid="stMetricValue"] { color: #0F172A !important; font-weight: 800 !important; }
+[data-testid="stMetricLabel"] p { color: #475569 !important; font-weight: 700 !important; }
+div.stDownloadButton > button, div.stButton > button,
+div[data-testid="stLinkButton"] > a {
+    background-color: #1E3A8A !important; color: #FFFFFF !important;
+    font-weight: 600 !important; font-size: 14px !important;
+    border-radius: 8px !important; border: none !important;
+    padding: 8px 16px !important;
+}
+div.stDownloadButton > button:hover, div.stButton > button:hover,
+div[data-testid="stLinkButton"] > a:hover {
+    background-color: #2563EB !important; color: #FFFFFF !important;
+}
+div.stDownloadButton > button p, div.stButton > button p,
+div[data-testid="stLinkButton"] > a p, div[data-testid="stLinkButton"] > a span {
+    color: #FFFFFF !important; margin: 0 !important;
+}
+input { color: #0F172A !important; background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; }
+</style>
 """, unsafe_allow_html=True)
 
-# ------------------------------------------------------------------------------
-# 1. SISTEMA DE LOGIN Y AUTENTICACIÓN (EVALUADO ANTES DE CUALQUIER CARGA)
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# AUTENTICACIÓN
+# ==============================================================================
 def verificar_login():
     if st.session_state.get("autenticado", False):
         return True
 
-    st.markdown("<h2 style='text-align: center; color: #0F172A;'>🔒 Sistema de Control de Acceso</h2>", unsafe_allow_html=True)
-    
-    col_c1, col_c2, col_c3 = st.columns([1, 1.2, 1])
-    with col_c2:
+    st.markdown(
+        "<h2 style='text-align:center;color:#0F172A;'>🔒 Sistema de Control de Acceso</h2>",
+        unsafe_allow_html=True
+    )
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
         with st.container(border=True):
             st.subheader("Iniciar Sesión")
             with st.form("form_login"):
                 usuario = st.text_input("Usuario:")
                 password = st.text_input("Contraseña:", type="password")
-                boton_login = st.form_submit_button("Ingresar", use_container_width=True)
+                ingresar = st.form_submit_button("Ingresar", use_container_width=True)
 
-                if boton_login:
+                if ingresar:
                     if "usuarios" in st.secrets and usuario in st.secrets["usuarios"]:
-                        password_guardada = str(st.secrets["usuarios"][usuario])
-                        if hmac.compare_digest(str(password), password_guardada):
+                        esperado = str(st.secrets["usuarios"][usuario])
+                        if hmac.compare_digest(str(password), esperado):
                             st.session_state.autenticado = True
-                            st.success("✅ Acceso concedido")
                             st.rerun()
                         else:
                             st.error("❌ Contraseña incorrecta")
                     else:
                         st.error("❌ Usuario no registrado o secretos no configurados")
-
     return False
 
 if not verificar_login():
     st.stop()
 
-# ------------------------------------------------------------------------------
-# CONEXIÓN CON GOOGLE SHEETS VÍA GSPREAD
-# ------------------------------------------------------------------------------
-SHEET_ID = "114059SazWnhrk9vUc12Qdyy4eP6EP6lUI_SLj-inGXA"
+# ==============================================================================
+# UTILIDADES DE NORMALIZACIÓN Y DATOS
+# ==============================================================================
+def normalizar(texto):
+    if texto is None:
+        return ""
+    texto = str(texto)
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return texto.lower().strip()
 
+def limpiar_valor(valor):
+    """Limpia sin alterar identificadores, teléfonos o textos válidos."""
+    if valor is None:
+        return ""
+    if isinstance(valor, pd.Timestamp):
+        return valor.strftime("%Y-%m-%d")
+    if isinstance(valor, datetime):
+        return valor.strftime("%Y-%m-%d")
+    if isinstance(valor, float):
+        if pd.isna(valor):
+            return ""
+        if valor.is_integer():
+            return str(int(valor))
+    texto = str(valor).strip()
+    if texto.lower() in {"nan", "none", "null", "<na>"}:
+        return ""
+    # Solo quitar .0 cuando el valor entero fue convertido como texto.
+    if re.fullmatch(r"-?\d+\.0", texto):
+        texto = texto[:-2]
+    return texto
+
+def preparar_df(data):
+    """Lee las filas de datos y las asigna a las columnas REALES, por posición."""
+    if not data or len(data) < 2:
+        return pd.DataFrame(columns=COLUMNAS)
+
+    # La estructura confirmada del archivo es:
+    # fila 1 = encabezados principales/agrupadores
+    # fila 2 = subencabezados de las columnas 18-26
+    filas = data[2:]
+
+    resultado = []
+    for row in filas:
+        row = list(row)
+        if len(row) < len(COLUMNAS):
+            row += [""] * (len(COLUMNAS) - len(row))
+        row = row[:len(COLUMNAS)]
+        resultado.append([limpiar_valor(v) for v in row])
+
+    return pd.DataFrame(resultado, columns=COLUMNAS)
+
+# ==============================================================================
+# GOOGLE SHEETS
+# ==============================================================================
 @st.cache_resource
 def conectar_google_sheets():
-    """Conecta con la API de Google Sheets directamente a la pestaña 'Base de datos Lideres'."""
     try:
         credenciales = dict(st.secrets["gcp_service_account"])
         client = gspread.service_account_from_dict(credenciales)
-        
-        try:
-            sheet = client.open_by_key(SHEET_ID).worksheet("Base de datos Lideres")
-        except Exception:
-            sheet = client.open_by_key(SHEET_ID).get_worksheet(0)
-            
+
+        # La hoja REAL del archivo entregado se llama "BD Cumple".
+        sheet = client.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
         return sheet
     except Exception as e:
-        st.error(f"⚠️ Error al conectar con Google Sheets API: {e}")
+        st.error(f"⚠️ Error al conectar con Google Sheets / pestaña '{SHEET_NAME}': {e}")
         return None
 
 def actualizar_hoja_gspread(sheet, range_name, values):
-    """Función de compatibilidad para actualizar celdas en gspread v5 y v6+."""
     try:
         sheet.update(range_name=range_name, values=values)
     except TypeError:
         sheet.update(range_name, values)
 
 def cargar_datos():
-    """Carga y reestructura las columnas procesando adecuadamente el encabezado."""
     sheet = conectar_google_sheets()
-    if sheet:
-        try:
-            data = sheet.get_all_values()
-            if not data or len(data) < 2:
-                st.session_state.header_offset = 1
-                return pd.DataFrame()
-            
-            fila_1 = [str(c).strip() for c in data[0]]
-            fila_2 = [str(c).strip() for c in data[1]] if len(data) > 1 else []
+    if sheet is None:
+        return pd.DataFrame(columns=COLUMNAS)
 
-            tiene_encabezado_doble = any("PROYECCI" in c.upper() or "PLANILLA" in c.upper() for c in fila_1)
+    try:
+        data = sheet.get_all_values()
+        return preparar_df(data)
+    except Exception as e:
+        st.error(f"❌ Error al leer la base de datos: {e}")
+        return pd.DataFrame(columns=COLUMNAS)
 
-            if tiene_encabezado_doble and len(data) >= 2:
-                headers_crudos = fila_2
-                data_rows = data[2:]
-                st.session_state.header_offset = 2  # 2 filas de encabezado
-            else:
-                headers_crudos = fila_1
-                data_rows = data[1:]
-                st.session_state.header_offset = 1  # 1 fila de encabezado
-
-            nombres_mapeados = []
-            vistos = {}
-
-            for idx, raw_h in enumerate(headers_crudos):
-                h_clean = raw_h.strip()
-                
-                if not h_clean or h_clean.lower().startswith("columna_") or h_clean.lower().startswith("unnamed"):
-                    nombres_sugeridos = [
-                        "Nombres", "Apellidos", "Cédula / Identificación", "Dependencia", 
-                        "Secretaría", "Cargo Actual", "Profesión", "Teléfono / Celular", 
-                        "Correo Electrónico", "Comuna", "Barrio", "Día Cumpleaños", 
-                        "Mes Cumpleaños", "Proyección", "Registros", "Municipio", 
-                        "Notas", "No. Amigos", "Municipio / Bello", "Otros Municipios / Deptos", 
-                        "No está en Censo", "Cédula Errónea", "URL Planilla PDF"
-                    ]
-                    if idx < len(nombres_sugeridos):
-                        h_clean = nombres_sugeridos[idx]
-                    else:
-                        h_clean = f"Campo Adicional {idx + 1}"
-
-                if h_clean in vistos:
-                    vistos[h_clean] += 1
-                    nombre_final = f"{h_clean} ({vistos[h_clean]})"
-                else:
-                    vistos[h_clean] = 0
-                    nombre_final = h_clean
-
-                nombres_mapeados.append(nombre_final)
-
-            num_cols = len(nombres_mapeados)
-            filas_limpias = []
-            for row in data_rows:
-                if len(row) < num_cols:
-                    row = row + [""] * (num_cols - len(row))
-                else:
-                    row = row[:num_cols]
-                filas_limpias.append(row)
-
-            df = pd.DataFrame(filas_limpias, columns=nombres_mapeados).astype(str)
-            
-            for col in df.columns:
-                df[col] = df[col].str.replace(".0", "", regex=False)
-                df[col] = df[col].replace(["nan", "None", "<NA>", "null"], "")
-                df[col] = df[col].str.strip()
-
-            return df
-        except Exception as e:
-            st.error(f"Error al procesar y ordenar la estructura de la hoja: {e}")
-            return pd.DataFrame()
-    return pd.DataFrame()
-
-if "df_lideres" not in st.session_state or st.session_state.df_lideres.empty:
+if "df_lideres" not in st.session_state:
     st.session_state.df_lideres = cargar_datos()
 
 df_lideres = st.session_state.df_lideres
 
-# ------------------------------------------------------------------------------
-# FUNCIONES AUXILIARES Y DE EXPORTACIÓN PDF
-# ------------------------------------------------------------------------------
-NOMBRES_MESES = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+# ==============================================================================
+# BÚSQUEDA EXACTA DE COLUMNAS
+# ==============================================================================
+def valor(row, columna, default="Sin datos"):
+    if columna not in row.index:
+        return default
+    v = limpiar_valor(row[columna])
+    return v if v else default
 
-def normalizar(texto):
-    """Normaliza texto para comparaciones sin acentos, mayúsculas ni espacios extremos."""
-    if texto is None:
-        return ""
-    texto = unicodedata.normalize("NFD", str(texto))
-    return "".join(c for c in texto if unicodedata.category(c) != "Mn").casefold().strip()
+def indice_por_identificacion(df, identificacion):
+    buscado = limpiar_valor(identificacion)
+    if not buscado:
+        return []
 
+    col = "No. Identificación"
+    if col not in df.columns:
+        return []
 
-VALORES_VACIOS = {"", "nan", "none", "null", "<na>", "nat"}
+    serie = df[col].map(limpiar_valor)
+    return df.index[serie == buscado].tolist()
 
-
-def limpiar_valor(valor):
-    """Limpia valores sin destruir identificadores ni textos que contengan '.0'."""
-    if valor is None:
-        return ""
-    valor = str(valor).strip()
-    if valor.casefold() in VALORES_VACIOS:
-        return ""
-    return re.sub(r"(?<=\d)\.0$", "", valor)
-
-
-def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
-    claves = [normalizar(k) for k in palabras_clave]
-
-    for col in df_columns:
-        if normalizar(col) in claves:
-            val = limpiar_valor(row[col])
-            if val:
-                return val
-
-    for key_norm in claves:
-        for col in df_columns:
-            if key_norm and key_norm in normalizar(col):
-                val = limpiar_valor(row[col])
-                if val:
-                    return val
-
-    return default
-
-
-def encontrar_columna(df_columns, palabras_clave):
-    """Encuentra la columna más probable para un conjunto de palabras clave."""
-    claves = [normalizar(k) for k in palabras_clave]
-
-    for col in df_columns:
-        if normalizar(col) in claves:
-            return col
-
-    for key in claves:
-        for col in df_columns:
-            if key and key in normalizar(col):
-                return col
-
-    return None
-
-
-def construir_mascara_busqueda(df, termino, columnas=None):
-    """Búsqueda literal y segura; evita que caracteres especiales se interpreten como regex."""
-    if df.empty:
-        return pd.Series(False, index=df.index)
-
-    columnas = list(columnas) if columnas else df.columns.tolist()
-    termino = str(termino).strip()
-
-    if not termino:
-        return pd.Series(True, index=df.index)
-
-    return (
-        df[columnas]
-        .fillna("")
-        .astype(str)
-        .apply(lambda col: col.str.contains(
-            termino, case=False, na=False, regex=False
-        ))
-        .any(axis=1)
-    )
-
+def fecha_cumpleaños(valor_fecha):
+    if not valor_fecha:
+        return None
+    texto = limpiar_valor(valor_fecha)
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(texto[:10], fmt).date()
+        except ValueError:
+            pass
+    try:
+        return pd.to_datetime(texto, dayfirst=True, errors="raise").date()
+    except Exception:
+        return None
 
 def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     if df.empty:
@@ -324,180 +292,127 @@ def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
     hoy = date.today()
     proximos = []
 
-    col_dia = encontrar_columna(df.columns, ["día cumpleaños", "dia cumpleaños"])
-    col_mes = encontrar_columna(df.columns, ["mes cumpleaños", "mes cumpleaños"])
+    for idx, row in df.iterrows():
+        fecha = fecha_cumpleaños(valor(row, "Fecha de Cumpleaños", ""))
+        if not fecha:
+            continue
 
-    # Si no existen columnas específicas, busca columnas de día/mes como respaldo.
-    if not col_dia:
-        col_dia = encontrar_columna(df.columns, ["dia"])
-    if not col_mes:
-        col_mes = encontrar_columna(df.columns, ["mes"])
-
-    col_fecha = None
-    if not col_dia or not col_mes:
-        col_fecha = encontrar_columna(
-            df.columns,
-            ["fecha cumpleaños", "fecha de cumpleaños", "cumpleaños", "cumpleanos"]
-        )
-
-    def parsear_fecha(dia_raw, mes_raw=""):
-        dia_raw = limpiar_valor(dia_raw)
-        mes_raw = limpiar_valor(mes_raw)
-
-        if dia_raw and ("/" in dia_raw or "-" in dia_raw):
-            partes = re.split(r"[/-]", dia_raw)
-            if len(partes) >= 2:
-                try:
-                    a, b = int(partes[0]), int(partes[1])
-                    if a > 31 and 1 <= b <= 12:
-                        return int(partes[2]) if len(partes) > 2 else None, b
-                    return a, b
-                except (ValueError, TypeError):
-                    pass
-
-        if dia_raw.isdigit() and mes_raw.isdigit():
-            return int(dia_raw), int(mes_raw)
-
-        return None, None
-
-    if not col_fecha and (not col_dia or not col_mes):
-        return []
-
-    for _, row in df.iterrows():
         try:
-            if col_fecha:
-                dia, mes = parsear_fecha(row[col_fecha])
+            cumple = date(hoy.year, fecha.month, fecha.day)
+        except ValueError:
+            # 29 de febrero: se considera 28 de febrero en año no bisiesto.
+            if fecha.month == 2 and fecha.day == 29:
+                cumple = date(hoy.year, 2, 28)
             else:
-                dia, mes = parsear_fecha(row[col_dia], row[col_mes])
-
-            if not dia or not mes or not (1 <= dia <= 31 and 1 <= mes <= 12):
                 continue
 
+        if cumple < hoy:
             try:
-                cumple = date(hoy.year, mes, dia)
+                cumple = date(hoy.year + 1, fecha.month, fecha.day)
             except ValueError:
-                if mes == 2 and dia == 29:
-                    anio = hoy.year
-                    while True:
-                        anio += 1
-                        try:
-                            cumple = date(anio, mes, dia)
-                            break
-                        except ValueError:
-                            continue
-                else:
-                    continue
+                cumple = date(hoy.year + 1, 2, 28)
 
-            if cumple < hoy:
-                anio = hoy.year + 1
-                try:
-                    cumple = date(anio, mes, dia)
-                except ValueError:
-                    if mes == 2 and dia == 29:
-                        while True:
-                            anio += 1
-                            try:
-                                cumple = date(anio, mes, dia)
-                                break
-                            except ValueError:
-                                continue
-                    else:
-                        continue
-
-            diferencia = (cumple - hoy).days
-
-            if 0 <= diferencia <= dias_anticipacion:
-                nombres = obtener_valor_campo(row, df.columns, ["nombres", "nombre"], "")
-                apellidos = obtener_valor_campo(row, df.columns, ["apellidos", "apellido"], "")
-
-                proximos.append({
-                    "nombre": f"{nombres} {apellidos}".strip().upper() or "USUARIO SIN NOMBRE",
-                    "dias": diferencia,
-                    "fecha_str": f"{dia} de {NOMBRES_MESES.get(mes, '')}",
-                    "telefono": obtener_valor_campo(row, df.columns, ["telefono", "celular"]),
-                    "dependencia": obtener_valor_campo(row, df.columns, ["dependencia", "secretaria"])
-                })
-        except (ValueError, TypeError, KeyError):
-            continue
+        dias = (cumple - hoy).days
+        if 0 <= dias <= dias_anticipacion:
+            proximos.append({
+                "idx": idx,
+                "nombre": f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip().upper(),
+                "dias": dias,
+                "fecha": cumple.strftime("%d/%m"),
+                "telefono": valor(row, "No. Teléfono"),
+                "dependencia": valor(row, "Dependencia")
+            })
 
     proximos.sort(key=lambda x: (x["dias"], x["nombre"]))
     return proximos
 
-
-def generar_pdf_ficha(row, df_columns):
+# ==============================================================================
+# PDF
+# ==============================================================================
+def generar_pdf_ficha(row):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    story = []
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
+    )
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#1E3A8A'), spaceAfter=10)
-    subtitle_style = ParagraphStyle('DocSubTitle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#0F172A'), spaceAfter=6)
-    
-    nombres = obtener_valor_campo(row, df_columns, ["nombres", "nombre"], "")
-    apellidos = obtener_valor_campo(row, df_columns, ["apellidos", "apellido"], "")
-    nombre_comp = f"{nombres} {apellidos}".strip().upper() or "FICHA DE USUARIO"
-    cedula = obtener_valor_campo(row, df_columns, ["identificacion", "cedula", "doc", "id"])
-    
-    story.append(Paragraph(f"<b>{html.escape(nombre_comp)}</b>", title_style))
-    story.append(Paragraph(f"Cédula / ID: <b>{html.escape(cedula)}</b>", subtitle_style))
-    story.append(Spacer(1, 12))
-    
-    data = [[Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])]]
-    for col in df_columns:
-        val = str(row[col]).strip()
-        val_limpio = limpiar_valor(val)
-        data.append([html.escape(str(col)), html.escape(val_limpio) if val_limpio else "Sin datos"])
-    
-    table = Table(data, colWidths=[180, 340])
+    title = ParagraphStyle(
+        "DocTitle", parent=styles["Heading1"], fontSize=18,
+        textColor=colors.HexColor("#1E3A8A"), spaceAfter=10
+    )
+    subtitle = ParagraphStyle(
+        "DocSubTitle", parent=styles["Heading2"], fontSize=12,
+        textColor=colors.HexColor("#0F172A"), spaceAfter=6
+    )
+
+    nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip().upper()
+    cedula = valor(row, "No. Identificación")
+
+    story = [
+        Paragraph(html.escape(nombre or "FICHA DE USUARIO"), title),
+        Paragraph(f"Cédula / ID: <b>{html.escape(cedula)}</b>", subtitle),
+        Spacer(1, 12)
+    ]
+
+    data = [[
+        Paragraph("<b>CAMPO</b>", styles["Normal"]),
+        Paragraph("<b>DETALLE</b>", styles["Normal"])
+    ]]
+
+    for col in COLUMNAS:
+        v = valor(row, col, "Sin datos")
+        data.append([html.escape(col), html.escape(v)])
+
+    table = Table(data, colWidths=[180, 340], repeatRows=1)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E2E8F0')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#E2E8F0")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.black),
+        ("ALIGN", (0,0), (-1,-1), "LEFT"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E1")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
     ]))
-    
     story.append(table)
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-# ------------------------------------------------------------------------------
-# SECCIÓN SUPERIOR: CUMPLEAÑOS
-# ------------------------------------------------------------------------------
-cumpleanos_lista = obtener_proximos_cumpleanos(df_lideres, dias_anticipacion=5)
+# ==============================================================================
+# CUMPLEAÑOS
+# ==============================================================================
+cumpleanos_lista = obtener_proximos_cumpleanos(df_lideres)
 
 with st.container(border=True):
     st.markdown("### 🎂 **Próximos Cumpleaños (Hoy y próximos 5 días)**")
     if cumpleanos_lista:
-        cols_cumple = st.columns(min(len(cumpleanos_lista), 4))
-        for idx, c in enumerate(cumpleanos_lista):
-            col_actual = cols_cumple[idx % 4]
-            with col_actual:
+        cols = st.columns(min(len(cumpleanos_lista), 4))
+        for i, c in enumerate(cumpleanos_lista):
+            with cols[i % 4]:
                 with st.container(border=True):
-                    if c["dias"] == 0: st.markdown("🥳 **¡HOY CUMPLE AÑOS!** 🎉")
-                    else: st.markdown(f"🗓️ **En {c['dias']} día(s)** ({c['fecha_str']})")
-                    st.markdown(f"**{c['nombre']}**")
+                    if c["dias"] == 0:
+                        st.markdown("🥳 **¡HOY CUMPLE AÑOS!** 🎉")
+                    else:
+                        st.markdown(f"🗓️ **En {c['dias']} día(s)** ({c['fecha']})")
+                    st.markdown(f"**{c['nombre'] or 'USUARIO SIN NOMBRE'}**")
                     st.caption(f"🏢 {c['dependencia']}\n\n📞 Tel: {c['telefono']}")
     else:
         st.info("🎈 No hay personas registradas que cumplan años hoy o en los próximos 5 días.")
 
 st.markdown("---")
 
-# ------------------------------------------------------------------------------
-# BARRA LATERAL Y MÓDULOS DEL SISTEMA
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# SIDEBAR
+# ==============================================================================
 st.sidebar.title("Módulos del Sistema")
 
 if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.autenticado = False
     st.rerun()
 
-if st.sidebar.button("🔄 Recargar datos de Google Drive", use_container_width=True):
-    st.cache_resource.clear()
+if st.sidebar.button("🔄 Recargar datos de Google Sheets", use_container_width=True):
     st.session_state.df_lideres = cargar_datos()
-    st.sidebar.success("✅ ¡Base de datos recargada desde la nube!")
+    st.sidebar.success("✅ Base de datos recargada.")
     st.rerun()
 
 menu = st.sidebar.radio(
@@ -516,359 +431,340 @@ menu = st.sidebar.radio(
 # ==============================================================================
 if menu == "🔍 Consulta Detallada":
     st.subheader("🔍 Consulta Detallada de Líderes")
-    if not df_lideres.empty:
-        criterio = st.radio("Buscar por:", ["Todos los campos", "Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
-        resultado = pd.DataFrame()
-        
+
+    if df_lideres.empty:
+        st.warning("No hay datos disponibles.")
+    else:
+        criterio = st.radio(
+            "Buscar por:",
+            ["Todos los campos", "Cédula / Identificación", "Nombre / Apellido"],
+            horizontal=True
+        )
         busqueda = st.text_input("Ingrese término de búsqueda:")
+        resultado = pd.DataFrame()
+
         if busqueda.strip():
-            term = busqueda.strip().lower()
-            
+            term = busqueda.strip()
             if criterio == "Cédula / Identificación":
-                cols_target = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["cedula", "identificacion", "doc", "id"])]
+                serie = df_lideres["No. Identificación"].map(limpiar_valor)
+                mask = serie.str.contains(re.escape(term), case=False, na=False)
             elif criterio == "Nombre / Apellido":
-                cols_target = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["nombre", "apellido"])]
+                a = df_lideres["Nombres"].map(limpiar_valor)
+                b = df_lideres["Apellidos"].map(limpiar_valor)
+                mask = a.str.contains(re.escape(term), case=False, na=False) | \
+                       b.str.contains(re.escape(term), case=False, na=False)
             else:
-                cols_target = df_lideres.columns.tolist()
+                mask = df_lideres.apply(
+                    lambda col: col.map(limpiar_valor).str.contains(
+                        re.escape(term), case=False, na=False
+                    ),
+                    axis=0
+                ).any(axis=1)
 
-            if not cols_target:
-                cols_target = df_lideres.columns.tolist()
-
-            mask = construir_mascara_busqueda(df_lideres, term, cols_target)
-            resultado = df_lideres[mask]
+            resultado = df_lideres.loc[mask]
 
         if not resultado.empty:
             st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
+
             for idx, row in resultado.iterrows():
-                nombres = obtener_valor_campo(row, df_lideres.columns, ["nombres", "nombre"], "")
-                apellidos = obtener_valor_campo(row, df_lideres.columns, ["apellidos", "apellido"], "")
-                nombre_completo = f"{nombres} {apellidos}".strip() or "NOMBRE NO REGISTRADO"
-                cedula = obtener_valor_campo(row, df_lideres.columns, ["identificacion", "cedula", "doc", "id"])
-                dependencia = obtener_valor_campo(row, df_lideres.columns, ["dependencia", "area", "sector"])
+                nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip()
+                cedula = valor(row, "No. Identificación")
+                dependencia = valor(row, "Dependencia")
 
                 with st.container(border=True):
-                    col_header1, col_header2 = st.columns([4, 1.2])
-                    with col_header1:
-                        st.markdown(f"## **{nombre_completo.upper()}**")
-                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
-                    with col_header2:
-                        pdf_file = generar_pdf_ficha(row, df_lideres.columns)
+                    h1, h2 = st.columns([4, 1.2])
+                    with h1:
+                        st.markdown(f"## **{nombre.upper() or 'NOMBRE NO REGISTRADO'}**")
+                        st.markdown(
+                            f"**Cédula / Identificación:** {cedula} | "
+                            f"**Dependencia:** {dependencia}"
+                        )
+                    with h2:
+                        pdf_file = generar_pdf_ficha(row)
+                        safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", cedula)
                         st.download_button(
-                            label="📄 Descargar Ficha PDF",
+                            "📄 Descargar Ficha PDF",
                             data=pdf_file,
-                            file_name=f"Ficha_{cedula}.pdf",
-                            mime="application/pdf",
-                            use_container_width=False
+                            file_name=f"Ficha_{safe_id or idx}.pdf",
+                            mime="application/pdf"
                         )
 
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    laboral = {
+                        "Dependencia": valor(row, "Dependencia"),
+                        "Secretaría y/o Dependencia": valor(row, "Secretaría y/o Dependencia"),
+                        "Apoyo": valor(row, "Apoyo"),
+                        "Profesión": valor(row, "Profesión"),
+                        "Cargo actual": valor(row, "Cargo actual"),
+                    }
+                    contacto = {
+                        "No. Teléfono": valor(row, "No. Teléfono"),
+                        "Correo Electrónico": valor(row, "Correo Electrónico"),
+                        "Redes Sociales": valor(row, "Redes Sociales"),
+                    }
+                    ubicacion = {
+                        "Comuna": valor(row, "Comuna"),
+                        "Barrio": valor(row, "Barrio"),
+                        "Fecha de Cumpleaños": valor(row, "Fecha de Cumpleaños"),
+                        "MUNICIPIO": valor(row, "MUNICIPIO"),
+                        "NOTAS": valor(row, "NOTAS"),
+                    }
+                    proyeccion = {
+                        "Total": valor(row, "Total"),
+                        "Bello": valor(row, "Bello"),
+                        "Otros": valor(row, "Otros"),
+                        "PROYECCIÓN": valor(row, "PROYECCIÓN"),
+                        "REGISTROS": valor(row, "REGISTROS"),
+                        "No. Amigos": valor(row, "No. Amigos"),
+                        "MUNICIPIO DE BELLO": valor(row, "MUNICIPIO DE BELLO"),
+                        "OTROS MUNICIPIOS - DEPTOS": valor(row, "OTROS MUNICIPIOS - DEPTOS"),
+                        "NO ESTA EN EL CENSO": valor(row, "NO ESTA EN EL CENSO"),
+                        "CEDULA ERRONEA": valor(row, "CEDULA ERRONEA"),
+                    }
 
-                    info_laboral = []
-                    contacto_directo = []
-                    ubicacion_fechas = []
-                    url_pdf_encontrado = None
-
-                    kw_laboral = ["dependencia", "secretaria", "cargo", "profesion", "empresa", "puesto", "sector", "labor", "contrato", "area", "proyeccion", "registro", "nota"]
-                    kw_contacto = ["telefono", "celular", "correo", "email", "redes", "whatsapp", "contacto", "movil", "amigos", "link", "url"]
-                    kw_ubicacion = ["comuna", "barrio", "municipio", "direccion", "fecha", "cumple", "nacimiento", "mes", "dia", "ubicacion", "zona", "bello", "deptos", "censo"]
-
-                    cols_omitir = [
-                        col for col in df_lideres.columns 
-                        if normalizar(col) in ["nombre", "nombres", "apellido", "apellidos", "cedula", "identificacion", "doc", "id"]
-                    ]
-
-                    for col in df_lideres.columns:
-                        if col in cols_omitir:
-                            continue
-                            
-                        val = str(row[col]).strip()
-                        if not val or val.lower() in ["nan", "none", "null", "<na>"]:
-                            val = "Sin datos"
-
-                        col_norm = normalizar(col)
-
-                        if ("pdf" in col_norm or "url" in col_norm or "planilla" in col_norm) and val.startswith("http"):
-                            url_pdf_encontrado = val
-
-                        if any(kw in col_norm for kw in kw_laboral):
-                            info_laboral.append((col, val))
-                        elif any(kw in col_norm for kw in kw_contacto):
-                            contacto_directo.append((col, val))
-                        elif any(kw in col_norm for kw in kw_ubicacion):
-                            ubicacion_fechas.append((col, val))
-                        else:
-                            lens = [len(info_laboral), len(contacto_directo), len(ubicacion_fechas)]
-                            min_idx = lens.index(min(lens))
-                            if min_idx == 0: info_laboral.append((col, val))
-                            elif min_idx == 1: contacto_directo.append((col, val))
-                            else: ubicacion_fechas.append((col, val))
-
-                    col1, col2, col3 = st.columns(3)
-
-                    with col1:
-                        st.markdown("### 📌 **Información Laboral**")
-                        for label, val in info_laboral:
-                            st.markdown(f"**{label}:** {val}")
-
-                    with col2:
-                        st.markdown("### 📞 **Contacto Directo**")
-                        for label, val in contacto_directo:
-                            if val.startswith("http://") or val.startswith("https://"):
-                                st.markdown(f"**{label}:** [{val}]({val})")
-                            elif "@" in val and "." in val:
-                                st.markdown(f"**{label}:** [{val}](mailto:{val})")
+                    c1, c2, c3, c4 = st.columns(4)
+                    with c1:
+                        st.markdown("### 📌 Información Laboral")
+                        for k, v in laboral.items():
+                            st.markdown(f"**{k}:** {v}")
+                    with c2:
+                        st.markdown("### 📞 Contacto Directo")
+                        for k, v in contacto.items():
+                            if k == "Correo Electrónico" and v != "Sin datos":
+                                st.markdown(f"**{k}:** [{v}](mailto:{v})")
+                            elif k == "Redes Sociales" and v.startswith(("http://","https://")):
+                                st.markdown(f"**{k}:** [{v}]({v})")
                             else:
-                                st.markdown(f"**{label}:** {val}")
+                                st.markdown(f"**{k}:** {v}")
+                    with c3:
+                        st.markdown("### 📍 Ubicación y Fechas")
+                        for k, v in ubicacion.items():
+                            st.markdown(f"**{k}:** {v}")
+                    with c4:
+                        st.markdown("### 📊 Proyección y Registros")
+                        for k, v in proyeccion.items():
+                            st.markdown(f"**{k}:** {v}")
 
-                    with col3:
-                        st.markdown("### 📍 **Ubicación y Fechas**")
-                        for label, val in ubicacion_fechas:
-                            st.markdown(f"**{label}:** {val}")
-
-                    if url_pdf_encontrado:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        st.link_button("🔗 Abrir PDF Planilla", url_pdf_encontrado, use_container_width=False)
+                    url = valor(row, "URL_PDF", "")
+                    if url.startswith(("http://","https://")):
+                        st.link_button("🔗 Abrir PDF Planilla", url)
 
                 st.markdown("---")
         elif busqueda:
             st.warning("⚠️ No se localizó ningún registro con el término especificado.")
 
 # ==============================================================================
-# MÓDULO 2: PANEL DE CONTROL EJECUTIVOS
+# MÓDULO 2: PANEL
 # ==============================================================================
 elif menu == "📈 Panel de Control Ejecutivos":
     st.subheader("📈 Panel de Control Ejecutivo y Métricas Analíticas")
+
     if not df_lideres.empty:
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        col_amigos = [c for c in df_lideres.columns if "AMIGOS" in c.upper()]
-        total_amigos = pd.to_numeric(df_lideres[col_amigos[0]], errors='coerce').fillna(0).sum() if col_amigos else 0
-        col_muni = [c for c in df_lideres.columns if "MUNICIPIO" in c.upper()]
-        total_municipios = df_lideres[col_muni[0]].nunique() if col_muni else 0
+        k1, k2, k3, k4 = st.columns(4)
 
-        kpi1.metric("👥 Total Líderes", len(df_lideres))
-        kpi2.metric("📊 Total Registros Amigos", int(total_amigos))
-        kpi3.metric("📍 Municipios Cubiertos", total_municipios)
-        kpi4.metric("🟢 Estado Conexión", "Sincronizado vía API")
+        amigos = pd.to_numeric(df_lideres["No. Amigos"], errors="coerce").fillna(0).sum()
+        municipios = df_lideres["MUNICIPIO"].replace("", pd.NA).dropna().nunique()
+
+        k1.metric("👥 Total Líderes", len(df_lideres))
+        k2.metric("📊 Total Registros Amigos", int(amigos))
+        k3.metric("📍 Municipios Cubiertos", int(municipios))
+        k4.metric("🟢 Estado Conexión", "Sincronizado vía API")
+
         st.markdown("---")
+        g1, g2 = st.columns(2)
 
-        # Gráficos Analíticos
-        col_g1, col_g2 = st.columns(2)
-        
-        # Gráfico 1: Líderes por Dependencia/Secretaría o Comuna
-        col_dep = [c for c in df_lideres.columns if any(k in normalizar(c) for k in ["dependencia", "secretaria", "comuna", "barrio"])]
-        if col_dep:
-            target_col = col_dep[0]
-            conteo_dep = df_lideres[target_col].replace("", "Sin Especificar").value_counts().head(10).reset_index()
-            conteo_dep.columns = [target_col, "Cantidad"]
-            
+        dep = df_lideres["Dependencia"].replace("", "Sin Especificar").value_counts().head(10)
+        if not dep.empty:
             fig1 = px.bar(
-                conteo_dep, x=target_col, y="Cantidad",
-                title=f"Distribución de Líderes por {target_col}",
-                color="Cantidad", color_continuous_scale="Blues"
+                dep.reset_index(), x="Dependencia", y="count",
+                title="Distribución de Líderes por Dependencia",
+                color="count", color_continuous_scale="Blues"
             )
             fig1.update_layout(xaxis_title="", yaxis_title="Líderes", template="plotly_white")
-            col_g1.plotly_chart(fig1, use_container_width=True)
+            g1.plotly_chart(fig1, use_container_width=True)
 
-        # Gráfico 2: Top Líderes con más Amigos/Registros
-        if col_amigos:
-            amigos_col = col_amigos[0]
-            nom_col = encontrar_columna(df_lideres.columns, ["nombres", "nombre"])
-            if not nom_col:
-                nom_col = df_lideres.columns[0]
-            
-            df_temp = df_lideres.copy()
-            df_temp["Amigos_Num"] = pd.to_numeric(df_temp[amigos_col], errors='coerce').fillna(0)
-            top_lideres = df_temp.sort_values(by="Amigos_Num", ascending=False).head(10)
-            
-            fig2 = px.bar(
-                top_lideres, x=nom_col, y="Amigos_Num",
-                title="Top 10 Líderes por Número de Registros / Amigos",
-                color="Amigos_Num", color_continuous_scale="Oranges"
-            )
-            fig2.update_layout(xaxis_title="Líder", yaxis_title="N° Amigos", template="plotly_white")
-            col_g2.plotly_chart(fig2, use_container_width=True)
+        temp = df_lideres.copy()
+        temp["No_Amigos_Num"] = pd.to_numeric(temp["No. Amigos"], errors="coerce").fillna(0)
+        temp["Nombre"] = (temp["Nombres"] + " " + temp["Apellidos"]).str.strip()
+        top = temp.sort_values("No_Amigos_Num", ascending=False).head(10)
+
+        fig2 = px.bar(
+            top, x="Nombre", y="No_Amigos_Num",
+            title="Top 10 Líderes por Número de Amigos",
+            color="No_Amigos_Num", color_continuous_scale="Oranges"
+        )
+        fig2.update_layout(xaxis_title="Líder", yaxis_title="N° Amigos", template="plotly_white")
+        g2.plotly_chart(fig2, use_container_width=True)
 
 # ==============================================================================
-# MÓDULO 3: REGISTRO DE NUEVO USUARIO
+# MÓDULO 3: NUEVO USUARIO
 # ==============================================================================
 elif menu == "➕ Registro de Nuevo Usuario":
     st.subheader("➕ Registro de Nuevo Usuario")
-    if not df_lideres.empty:
-        st.info("Los datos ingresados se guardarán automáticamente en la nube (Google Sheets).")
-        with st.form("form_nuevo_usuario", clear_on_submit=True):
-            datos_nuevos = {}
-            cols = list(df_lideres.columns)
-            c_a, c_b = st.columns(2)
-            for idx, col_name in enumerate(cols):
-                if idx % 2 == 0:
-                    datos_nuevos[col_name] = c_a.text_input(f"{col_name}:")
-                else:
-                    datos_nuevos[col_name] = c_b.text_input(f"{col_name}:")
-                    
-            guardar = st.form_submit_button("➕ Registrar y Guardar en Nube")
-            
-            if guardar:
-                sheet = conectar_google_sheets()
-                if sheet:
-                    try:
-                        nueva_fila = [limpiar_valor(datos_nuevos.get(col, "")) for col in cols]
-                        sheet.append_row(nueva_fila, value_input_option="USER_ENTERED")
+    st.info("Los datos ingresados se guardarán automáticamente en Google Sheets.")
 
-                        nuevo_row = pd.DataFrame([nueva_fila], columns=cols).astype(str)
-                        st.session_state.df_lideres = pd.concat(
-                            [st.session_state.df_lideres, nuevo_row],
-                            ignore_index=True
-                        )
+    with st.form("form_nuevo_usuario", clear_on_submit=True):
+        datos = {}
+        a, b = st.columns(2)
 
-                        st.success("✅ Usuario registrado exitosamente en Google Sheets y sincronizado.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ No fue posible registrar el usuario: {e}")
+        for i, col in enumerate(COLUMNAS):
+            target = a if i % 2 == 0 else b
+            datos[col] = target.text_input(f"{col}:")
 
+        guardar = st.form_submit_button("➕ Registrar y Guardar en Nube")
+
+    if guardar:
+        sheet = conectar_google_sheets()
+        if sheet:
+            nueva = [datos.get(col, "") for col in COLUMNAS]
+            try:
+                sheet.append_row(nueva, value_input_option="USER_ENTERED")
+                st.session_state.df_lideres = cargar_datos()
+                st.success("✅ Usuario registrado correctamente.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ No fue posible guardar el registro: {e}")
 
 # ==============================================================================
-# MÓDULO 4: EDITAR / MODIFICAR REGISTROS
+# MÓDULO 4: EDITAR REGISTRO INDIVIDUAL
 # ==============================================================================
 elif menu == "✏️ Editar / Modificar Registros":
-    st.title("✏️ Edición Formulario Individual de Usuarios")
-    st.caption("Los cambios guardados reemplazarán directamente la fila correspondiente en Google Sheets.")
-    
-    if not df_lideres.empty:
-        cedula_buscar = st.text_input("Ingrese la Cédula/ID del usuario a editar:", placeholder="Ej: 3474244")
-        
-        if cedula_buscar.strip():
-            col_id = encontrar_columna(
-                df_lideres.columns,
-                ["cédula / identificación", "cedula", "identificacion", "documento", "doc"]
-            )
-            if col_id:
-                termino_id = cedula_buscar.strip()
-                mask = df_lideres[col_id].fillna("").astype(str).str.strip().eq(termino_id)
-                if not mask.any():
-                    mask = df_lideres[col_id].fillna("").astype(str).str.contains(
-                        termino_id, case=False, na=False, regex=False
-                    )
-            else:
-                mask = construir_mascara_busqueda(df_lideres, cedula_buscar.strip())
-            idx_match = df_lideres[mask].index
+    st.title("✏️ Edición Individual de Usuarios")
+    st.caption("La identificación se busca EXCLUSIVAMENTE en 'No. Identificación'.")
 
-            if len(idx_match) > 0:
-                user_idx = idx_match[0]
-                usuario_data = df_lideres.loc[user_idx]
-                
-                st.success(f"👤 Usuario localizado (Índice #{user_idx + 1}). Modifique los campos necesarios:")
-                
+    if not df_lideres.empty:
+        identificacion = st.text_input(
+            "Ingrese la Cédula/ID del usuario a editar:",
+            placeholder="Ej: 3474244"
+        )
+
+        if identificacion.strip():
+            indices = indice_por_identificacion(df_lideres, identificacion)
+
+            if indices:
+                if len(indices) > 1:
+                    st.warning("⚠️ Hay más de un registro con esa identificación. Seleccione el registro.")
+                user_idx = indices[0]
+                usuario = df_lideres.loc[user_idx]
+
+                st.success(
+                    f"👤 Usuario localizado: "
+                    f"{valor(usuario,'Nombres','')} {valor(usuario,'Apellidos','')}"
+                )
+
                 with st.form("form_editar_usuario"):
-                    nuevos_datos = {}
-                    cols = list(df_lideres.columns)
-                    c_a, c_b = st.columns(2)
-                    for idx, col_name in enumerate(cols):
-                        val_actual = str(usuario_data[col_name]) if pd.notna(usuario_data[col_name]) else ""
-                        if idx % 2 == 0:
-                            nuevos_datos[col_name] = c_a.text_input(f"{col_name}:", value=val_actual)
-                        else:
-                            nuevos_datos[col_name] = c_b.text_input(f"{col_name}:", value=val_actual)
-                    
-                    btn_guardar_cambios = st.form_submit_button("💾 Guardar Cambios en la Nube")
-                    
-                    if btn_guardar_cambios:
-                        sheet = conectar_google_sheets()
-                        if sheet:
-                            # Cálculo dinámico de fila según el número de encabezados detectados
-                            offset = st.session_state.get("header_offset", 1)
-                            num_fila_sheet = user_idx + offset + 1
-                            valores_actualizados = [str(nuevos_datos.get(col, "")) for col in cols]
-                            
-                            actualizar_hoja_gspread(sheet, f"A{num_fila_sheet}", [valores_actualizados])
-                            
-                            for col_name, val_nuevo in nuevos_datos.items():
-                                st.session_state.df_lideres.at[user_idx, col_name] = val_nuevo
-                            
-                            st.success(f"✅ Fila #{num_fila_sheet} actualizada correctamente en Google Sheets.")
+                    nuevos = {}
+                    a, b = st.columns(2)
+
+                    for i, col in enumerate(COLUMNAS):
+                        actual = limpiar_valor(usuario[col])
+                        target = a if i % 2 == 0 else b
+                        nuevos[col] = target.text_input(f"{col}:", value=actual)
+
+                    guardar = st.form_submit_button("💾 Guardar Cambios en la Nube")
+
+                if guardar:
+                    sheet = conectar_google_sheets()
+                    if sheet:
+                        try:
+                            # La hoja tiene 2 filas de encabezados.
+                            # DataFrame índice 0 corresponde a fila 3 de Sheets.
+                            fila_sheet = user_idx + 3
+                            valores = [nuevos[col] for col in COLUMNAS]
+                            actualizar_hoja_gspread(
+                                sheet, f"A{fila_sheet}:{chr(64+len(COLUMNAS))}{fila_sheet}",
+                                [valores]
+                            )
+                            st.session_state.df_lideres.loc[user_idx, COLUMNAS] = valores
+                            st.success(f"✅ Registro actualizado en la fila {fila_sheet}.")
                             st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error al actualizar Google Sheets: {e}")
             else:
-                st.warning("⚠️ No se encontró ningún registro con la cédula ingresada.")
+                st.warning("⚠️ No se encontró ningún registro con esa identificación.")
 
 # ==============================================================================
-# MÓDULO 5: BASE DE DATOS COMPLETA
+# MÓDULO 5: BASE COMPLETA
 # ==============================================================================
 elif menu == "📋 Base de Datos Completa (Edición Directa)":
     st.subheader("📋 Base de Datos Completa (Edición Directa Tipo Excel)")
-    st.caption("✏️ Puedes modificar celdas, agregar nuevas filas (+) o eliminar registros directamente en la tabla.")
-    
-    if not df_lideres.empty:
-        filtro_tabla = st.text_input("🔎 Filtrar registros en la vista general:", placeholder="Escriba para buscar...")
-        
-        df_editable = df_lideres.copy()
-        if filtro_tabla.strip():
-            mask = construir_mascara_busqueda(df_editable, filtro_tabla.strip())
-            df_editable = df_editable[mask]
+    st.caption("La tabla utiliza exactamente las columnas reales de la base.")
 
-        df_modificado = st.data_editor(
-            df_editable,
+    if not df_lideres.empty:
+        filtro = st.text_input(
+            "🔎 Filtrar registros en la vista general:",
+            placeholder="Escriba para buscar..."
+        )
+
+        # Mantener el índice original para poder actualizar la fila correcta.
+        df_vista = df_lideres.copy()
+
+        if filtro.strip():
+            term = filtro.strip()
+            mask = df_vista.apply(
+                lambda col: col.map(limpiar_valor).str.contains(
+                    re.escape(term), case=False, na=False
+                ),
+                axis=0
+            ).any(axis=1)
+            df_vista = df_vista.loc[mask]
+
+        df_editable = st.data_editor(
+            df_vista,
             num_rows="dynamic",
             use_container_width=True,
-            key="editor_tabla_completa"
+            key="editor_tabla_completa",
+            hide_index=True
         )
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_s1, col_s2 = st.columns([1, 1])
-        
-        with col_s1:
+
+        guardar_col, csv_col = st.columns(2)
+
+        with guardar_col:
             if st.button("💾 Guardar Cambios en Google Sheets", use_container_width=True):
                 sheet = conectar_google_sheets()
                 if sheet:
                     try:
-                        if filtro_tabla.strip():
-                            base = st.session_state.df_lideres.copy()
-                            indices_originales = set(base.index)
-                            indices_editados = set(df_modificado.index)
-                            indices_nuevos = indices_editados - indices_originales
-
-                            if indices_nuevos:
-                                st.error(
-                                    "❌ Hay filas nuevas mientras existe un filtro activo. "
-                                    "Quite el filtro, agregue las filas y vuelva a guardar."
-                                )
-                                st.stop()
-
-                            for indice in df_modificado.index:
-                                base.loc[indice, df_modificado.columns] = df_modificado.loc[indice]
-                            st.session_state.df_lideres = base
+                        # Si el filtro está activo NO se reescribe toda la base.
+                        # Se actualizan solamente las filas originales visibles.
+                        if filtro.strip():
+                            for original_idx in df_vista.index:
+                                if original_idx in df_editable.index:
+                                    valores = [
+                                        limpiar_valor(df_editable.loc[original_idx, col])
+                                        for col in COLUMNAS
+                                    ]
+                                    fila_sheet = original_idx + 3
+                                    actualizar_hoja_gspread(
+                                        sheet,
+                                        f"A{fila_sheet}:AA{fila_sheet}",
+                                        [valores]
+                                    )
+                            st.session_state.df_lideres = cargar_datos()
                         else:
-                            st.session_state.df_lideres = df_modificado.copy()
+                            # Sin filtro, se actualizan las filas existentes y
+                            # no se tocan las dos filas de encabezados.
+                            for original_idx in df_vista.index:
+                                if original_idx in df_editable.index:
+                                    valores = [
+                                        limpiar_valor(df_editable.loc[original_idx, col])
+                                        for col in COLUMNAS
+                                    ]
+                                    fila_sheet = original_idx + 3
+                                    actualizar_hoja_gspread(
+                                        sheet,
+                                        f"A{fila_sheet}:AA{fila_sheet}",
+                                        [valores]
+                                    )
+                            st.session_state.df_lideres = cargar_datos()
 
-                        # Conserva todos los encabezados originales de la hoja.
-                        offset = st.session_state.get("header_offset", 1)
-                        datos_hoja = sheet.get_all_values()
-                        encabezados = (
-                            datos_hoja[:offset]
-                            if len(datos_hoja) >= offset
-                            else [list(st.session_state.df_lideres.columns)]
-                        )
-
-                        nuevas_filas = (
-                            st.session_state.df_lideres
-                            .fillna("")
-                            .astype(str)
-                            .values
-                            .tolist()
-                        )
-                        contenido_total = encabezados + nuevas_filas
-
-                        # Una única escritura evita dejar la hoja parcialmente actualizada.
-                        sheet.clear()
-                        actualizar_hoja_gspread(sheet, "A1", contenido_total)
-
-                        st.success("✅ Base de datos actualizada con éxito en Google Sheets.")
+                        st.success("✅ Cambios guardados correctamente sin alterar los encabezados.")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Error al guardar los cambios en Google Sheets: {e}")
+                        st.error(f"❌ Error al guardar cambios: {e}")
 
-        with col_s2:
-            csv_data = df_modificado.to_csv(index=False).encode('utf-8')
+        with csv_col:
+            csv_data = df_editable.to_csv(index=False).encode("utf-8-sig")
             st.download_button(
-                label="📥 Descargar Vista Actual (CSV)",
+                "📥 Descargar Vista Actual (CSV)",
                 data=csv_data,
                 file_name=f"Base_Datos_Lideres_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
