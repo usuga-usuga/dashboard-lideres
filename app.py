@@ -490,54 +490,117 @@ elif menu == "🎂 Cumpleaños Próximos":
             st.success("🎈 No hay cumpleaños registrados para hoy o los próximos 5 días.")
 
 # ==========================================
-# MÓDULO 4: CREAR NUEVO REGISTRO
+# MÓDULO 4: EDITAR LÍDER
 # ==========================================
-elif menu == "➕ Crear Nuevo Registro":
-    st.title("➕ Agregar Nuevo Líder")
+elif menu == "✏️ Editar Líder":
+    st.title("✏️ Editar Información de Líder")
+    if df_lideres.empty:
+        st.warning("No hay datos disponibles para editar.")
+    else:
+        # Selección de líder
+        lista_opciones = []
+        for idx, r in df_lideres.iterrows():
+            nom = f"{valor(r, 'Nombres')} {valor(r, 'Apellidos')}".strip()
+            ced = valor(r, "No. Identificacion")
+            lista_opciones.append(f"{ced} - {nom}")
 
-    with st.form("form_nuevo_lider"):
-        c1, c2 = st.columns(2)
-        with c1:
-            cedula = st.text_input("No. Identificación *")
-            nombres = st.text_input("Nombres *")
-            apellidos = st.text_input("Apellidos *")
-            telefono = st.text_input("Teléfono")
-            dependencia = st.text_input("Dependencia")
-            secretaria = st.text_input("Secretaría")
-            apoyo = st.text_input("Apoyo")
-            profesion = st.text_input("Profesión")
-            cargo = st.text_input("Cargo Actual")
-        with c2:
-            correo = st.text_input("Correo Electrónico")
-            redes = st.text_input("Redes Sociales")
-            cumple = st.date_input("Fecha de Cumpleaños", value=None)
-            comuna = st.text_input("Comuna")
-            barrio = st.text_input("Barrio")
-            municipio = st.text_input("Municipio Proyectado")
-            amigos = st.number_input("Total Amigos", min_value=0, step=1)
-            proyeccion = st.number_input("Proyección", min_value=0, step=1)
-            url_pdf = st.text_input("URL PDF Planilla")
+        seleccion = st.selectbox("Seleccione el líder a editar:", lista_opciones)
 
-        submitted = st.form_submit_button("💾 Guardar Líder", type="primary")
+        if seleccion:
+            ced_sel = seleccion.split(" - ")[0].strip()
+            idx_match = df_lideres[df_lideres["No. Identificacion"].map(limpiar_valor) == ced_sel].index
 
-        if submitted:
-            if not cedula or not nombres:
-                st.error("Por favor complete los campos obligatorios (*).")
-            else:
-                nueva_fila = [
-                    cedula, nombres, apellidos, telefono, dependencia, secretaria, apoyo, profesion,
-                    cargo, correo, redes, str(cumple) if cumple else "", comuna, barrio, "", "", "",
-                    proyeccion, 0, municipio, "", "", "", "", "", amigos, url_pdf
-                ]
+            if not idx_match.empty:
+                idx_row = idx_match[0]
+                row = df_lideres.loc[idx_row]
+
+                st.subheader(f"Editing: {valor(row, 'Nombres')} {valor(row, 'Apellidos')}")
                 
-                try:
-                    ws = get_worksheet()
-                    ws.append_row(nueva_fila)
-                    st.success("✅ ¡Registro agregado con éxito a Google Sheets!")
-                    st.cache_data.clear()
-                    st.session_state.df_lideres = cargar_datos()
-                except Exception as e:
-                    st.error(f"Error al escribir en Google Sheets: {e}")
+                with st.form(key=f"form_edit_{idx_row}"):
+                    # Seccion 1: Datos Principales
+                    st.markdown("#### 📌 Datos Personales y Contacto")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        new_nombres = st.text_input("Nombres", value=valor(row, "Nombres"))
+                        new_apellidos = st.text_input("Apellidos", value=valor(row, "Apellidos"))
+                        new_tel = st.text_input("Teléfono", value=valor(row, "No. Telefono"))
+                        new_correo = st.text_input("Correo", value=valor(row, "Correo Electronico"))
+                        new_cumple = st.text_input("Fecha Cumpleaños (AAAA-MM-DD)", value=valor(row, "Fecha de Cumpleanos"))
+                        new_redes = st.text_input("Redes Sociales", value=valor(row, "Redes Sociales"))
+                    with c2:
+                        new_dep = st.text_input("Dependencia", value=valor(row, "Dependencia"))
+                        new_sec = st.text_input("Secretaría", value=valor(row, "Secretaria y/o Dependencia"))
+                        new_cargo = st.text_input("Cargo Actual", value=valor(row, "Cargo actual"))
+                        new_prof = st.text_input("Profesión", value=valor(row, "Profesion"))
+                        new_apoyo = st.text_input("Apoyo", value=valor(row, "Apoyo"))
+                        new_comuna = st.text_input("Comuna", value=valor(row, "Comuna"))
+                        new_barrio = st.text_input("Barrio", value=valor(row, "Barrio"))
+
+                    st.markdown("---")
+                    
+                    # Seccion 2: Votantes, Proyección y Registros
+                    st.markdown("#### 🗳️ Votantes, Proyección y Planillas")
+                    c3, c4, c5 = st.columns(3)
+                    
+                    with c3:
+                        st.markdown("**🗳️ Votantes**")
+                        new_bello = st.number_input("Bello", value=int(pd.to_numeric(valor(row, "Bello"), errors='coerce') or 0), step=1)
+                        new_otros = st.number_input("Otros", value=int(pd.to_numeric(valor(row, "Otros"), errors='coerce') or 0), step=1)
+                        new_total = st.number_input("Total Votantes", value=int(pd.to_numeric(valor(row, "Total"), errors='coerce') or 0), step=1)
+
+                    with c4:
+                        st.markdown("**📈 Proyección y Notas**")
+                        new_proy = st.number_input("Proyección", value=int(pd.to_numeric(valor(row, "PROYECCION"), errors='coerce') or 0), step=1)
+                        new_registros = st.number_input("Registros", value=int(pd.to_numeric(valor(row, "REGISTROS"), errors='coerce') or 0), step=1)
+                        new_mun_proy = st.text_input("Municipio Proyectado", value=valor(row, "MUNICIPIO PROYECTADO"))
+                        new_notas = st.text_area("Notas", value=valor(row, "NOTAS"))
+
+                    with c5:
+                        st.markdown("**📋 Planillas y Registros**")
+                        new_mun_bello = st.number_input("Municipio de Bello", value=int(pd.to_numeric(valor(row, "MUNICIPIO DE BELLO"), errors='coerce') or 0), step=1)
+                        new_otros_mun = st.number_input("Otros Municipios - Deptos", value=int(pd.to_numeric(valor(row, "OTROS MUNICIPIOS - DEPTOS"), errors='coerce') or 0), step=1)
+                        new_no_censo = st.number_input("No está en el censo", value=int(pd.to_numeric(valor(row, "NO ESTA EN EL CENSO"), errors='coerce') or 0), step=1)
+                        new_ced_erronea = st.number_input("Cédula Errónea", value=int(pd.to_numeric(valor(row, "CEDULA ERRONEA"), errors='coerce') or 0), step=1)
+                        new_tot_amigos = st.number_input("Total No. Amigos", value=int(pd.to_numeric(valor(row, "Total No. Amigos"), errors='coerce') or 0), step=1)
+
+                    new_url_pdf = st.text_input("URL PDF Planilla", value=valor(row, "URL_PDF"))
+
+                    st.markdown("---")
+                    btn_guardar = st.form_submit_button("💾 Guardar Cambios")
+
+                    if btn_guardar:
+                        # Asignar los nuevos valores a la fila
+                        df_lideres.loc[idx_row, "Nombres"] = new_nombres
+                        df_lideres.loc[idx_row, "Apellidos"] = new_apellidos
+                        df_lideres.loc[idx_row, "No. Telefono"] = new_tel
+                        df_lideres.loc[idx_row, "Correo Electronico"] = new_correo
+                        df_lideres.loc[idx_row, "Fecha de Cumpleanos"] = new_cumple
+                        df_lideres.loc[idx_row, "Redes Sociales"] = new_redes
+                        df_lideres.loc[idx_row, "Dependencia"] = new_dep
+                        df_lideres.loc[idx_row, "Secretaria y/o Dependencia"] = new_sec
+                        df_lideres.loc[idx_row, "Cargo actual"] = new_cargo
+                        df_lideres.loc[idx_row, "Profesion"] = new_prof
+                        df_lideres.loc[idx_row, "Apoyo"] = new_apoyo
+                        df_lideres.loc[idx_row, "Comuna"] = new_comuna
+                        df_lideres.loc[idx_row, "Barrio"] = new_barrio
+                        
+                        df_lideres.loc[idx_row, "Bello"] = new_bello
+                        df_lideres.loc[idx_row, "Otros"] = new_otros
+                        df_lideres.loc[idx_row, "Total"] = new_total
+                        df_lideres.loc[idx_row, "PROYECCION"] = new_proy
+                        df_lideres.loc[idx_row, "REGISTROS"] = new_registros
+                        df_lideres.loc[idx_row, "MUNICIPIO PROYECTADO"] = new_mun_proy
+                        df_lideres.loc[idx_row, "NOTAS"] = new_notas
+                        
+                        df_lideres.loc[idx_row, "MUNICIPIO DE BELLO"] = new_mun_bello
+                        df_lideres.loc[idx_row, "OTROS MUNICIPIOS - DEPTOS"] = new_otros_mun
+                        df_lideres.loc[idx_row, "NO ESTA EN EL CENSO"] = new_no_censo
+                        df_lideres.loc[idx_row, "CEDULA ERRONEA"] = new_ced_erronea
+                        df_lideres.loc[idx_row, "Total No. Amigos"] = new_tot_amigos
+                        df_lideres.loc[idx_row, "URL_PDF"] = new_url_pdf
+
+                        st.success("✅ Cambios guardados exitosamente.")
+                        st.rerun()
 
 # ==========================================
 # MÓDULO 5: EDITAR POR CÉDULA
