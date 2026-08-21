@@ -24,9 +24,38 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .main .block-container { padding-top: 1.5rem; padding-bottom: 2rem; }
-    .stMetric { background-color: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e9ecef; }
-    div[data-testid="stForm"] { border: 1px solid #e0e0e0; padding: 20px; border-radius: 10px; background-color: #ffffff; }
+    .main .block-container { 
+        padding-top: 1.5rem; 
+        padding-bottom: 2rem; 
+    }
+    .stMetric { 
+        background-color: #f8f9fa; 
+        padding: 12px; 
+        border-radius: 8px; 
+        border: 1px solid #e9ecef; 
+    }
+    
+    /* FIX DE VISIBILIDAD DE FORMULARIO Y TEXTOS */
+    div[data-testid="stForm"] { 
+        border: 1px solid #374151; 
+        padding: 20px; 
+        border-radius: 10px; 
+        background-color: #1f2937 !important; /* Fondo oscuro elegante */
+    }
+    
+    /* Forzar visibilidad del texto en las etiquetas (Labels) */
+    div[data-testid="stForm"] label, 
+    div[data-testid="stForm"] .stMarkdown p { 
+        color: #f3f4f6 !important; 
+        font-weight: 600 !important; 
+    }
+    
+    /* Ajuste de contraste para los campos de entrada */
+    div[data-testid="stForm"] input { 
+        background-color: #111827 !important; 
+        color: #ffffff !important; 
+        border: 1px solid #4b5563 !important; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
