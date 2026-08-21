@@ -406,7 +406,6 @@ elif menu == "🔍 Consulta Detallada":
                             f"**Votos Otros:** {valor(row, 'Otros', '0')}\n\n"
                             f"**Total Potencial:** {valor(row, 'Total', '0')}"
                         )
-
                     url = valor(row, "URL_PDF", "")
                     if url.startswith(("http://", "https://")):
                         st.link_button("🔗 Abrir PDF Planilla", url)
