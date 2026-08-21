@@ -29,7 +29,7 @@ st.markdown("""
         padding-bottom: 2rem; 
     }
     
-    /* FIX PARA TARJETAS DE MÉTRICAS (st.metric) */
+    /* TARJETA DE MÉTRICAS (st.metric) */
     div[data-testid="stMetric"] {
         background-color: #1f2937 !important;
         border: 1px solid #374151 !important;
@@ -37,14 +37,13 @@ st.markdown("""
         border-radius: 10px !important;
     }
     
-    /* Textos del título y valores dentro de las métricas */
     div[data-testid="stMetric"] label,
     div[data-testid="stMetricLabel"],
     div[data-testid="stMetricValue"] {
         color: #ffffff !important;
     }
     
-    /* FIX DE VISIBILIDAD DE FORMULARIOS Y CAMPOS DE TEXTO */
+    /* FORMULARIOS Y CAMPOS DE TEXTO */
     div[data-testid="stForm"] { 
         border: 1px solid #374151; 
         padding: 20px; 
@@ -306,11 +305,7 @@ if menu == "📊 Dashboard General":
     if df_lideres.empty:
         st.info("No hay datos para mostrar.")
     else:
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Total Registros", len(df_lideres))
-        k2.metric("Total Amigos", int(df_lideres["Total No. Amigos"].sum()))
-        k3.metric("Proyección Total", int(df_lideres["PROYECCION"].sum()))
-        k4.metric("Total Registrados", int(df_lideres["REGISTROS"].sum()))
+        st.metric("Total Registros", len(df_lideres))
 
         st.markdown("---")
         g1, g2 = st.columns(2)
@@ -490,7 +485,6 @@ elif menu == "✏️ Editar por Cédula":
             row_idx = match.index[0]
             row_data = match.iloc[0]
             
-            # Control de seguridad anti KeyError
             if "_sheet_row" in row_data:
                 sheet_row = int(row_data["_sheet_row"])
             else:
