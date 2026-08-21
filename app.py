@@ -100,17 +100,27 @@ if not check_password():
     st.stop()
 
 # ==========================================
-# CONEXIÓN A GOOGLE SHEETS
+# CONEXIÓN A GOOGLE SHEETS (OPTIMIZADA)
 # ==========================================
 @st.cache_resource(ttl=600)
 def get_gspread_client():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
 def get_worksheet():
     client = get_gspread_client()
+    
+    # 1. Método A: Apertura segura por ID (evita error de búsqueda en Drive API)
+    if "spreadsheet_id" in st.secrets and st.secrets["spreadsheet_id"].strip():
+        sheet_id = st.secrets["spreadsheet_id"].strip()
+        return client.open_by_key(sheet_id).sheet1
+
+    # 2. Método B: Caída por nombre de archivo
     sheet_name = st.secrets.get("spreadsheet_title", "Base Datos LIDERES")
     return client.open(sheet_name).sheet1
 
@@ -162,7 +172,16 @@ def cargar_datos():
 
 if "df_lideres" not in st.session_state:
     with st.spinner("Cargando datos desde Google Sheets..."):
-        st.session_state.df_lideres = cargar_datos()
+        try:
+            st.session_state.df_lideres = cargar_datos()
+        except Exception as e:
+            st.error(f"❌ Error al conectar con Google Sheets: {e}")
+            st.info("""
+            **Pasos de solución recomendados:**
+            1. Asegúrate de haber compartido el archivo de Google Sheets con el correo de la cuenta de servicio (`client_email`).
+            2. Agrega la clave `spreadsheet_id = "TU_ID_AQUI"` dentro de los Secrets de Streamlit.
+            """)
+            st.stop()
 
 df_lideres = st.session_state.df_lideres
 
