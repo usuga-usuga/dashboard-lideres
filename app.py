@@ -390,18 +390,18 @@ elif menu == "🔍 Consulta Detallada":
                             f"**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n"
                             f"**Redes Sociales:** {valor(row, 'Redes Sociales')}"
                         )
-                    with c3:
+                   with c3:
                         st.markdown("### 📍 Ubicación")
                         st.markdown(
                             f"**Comuna:** {valor(row, 'Comuna')}\n\n"
-                            f"**Barrio:** {valor(row, 'Barrio')}\n\n"
-                            f"**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}"
+                            f"**Barrio:** {valor(row, 'Barrio')}"
                         )
                     with c4:
                         st.markdown("### 📊 Votación y Redes")
                         st.markdown(
                             f"**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}\n\n"
                             f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n"
+                            f"**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n"
                             f"**Votos Bello:** {valor(row, 'Bello', '0')}\n\n"
                             f"**Votos Otros:** {valor(row, 'Otros', '0')}\n\n"
                             f"**Total Potencial:** {valor(row, 'Total', '0')}"
