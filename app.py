@@ -495,49 +495,34 @@ elif menu == "🎂 Cumpleaños Próximos":
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
     
-    # CSS definitivo para eliminar el contenedor blanco y forzar alto contraste
+    # CSS Inyectado a nivel global en la vista del App
     st.markdown(
         """
         <style>
-        /* 1. Eliminar el fondo blanco forzado del formulario y hacerlo oscuro */
-        div[data-testid="stForm"], 
-        div[data-testid="stForm"] > div,
+        /* Forzar que el contenedor principal y cualquier formulario sean de fondo oscuro */
+        [data-testid="stAppViewContainer"],
+        [data-testid="stForm"],
         .stForm {
-            background-color: #111827 !important;
-            border: 1px solid #374151 !important;
-            border-radius: 10px !important;
-            padding: 20px !important;
+            background-color: #0E1117 !important;
         }
 
-        /* 2. Forzar que TODOS los nombres de los campos (labels) sean NEGROS o BLANCOS VISIBLES */
-        div[data-testid="stForm"] label,
-        div[data-testid="stForm"] label p,
-        div[data-testid="stForm"] label span,
-        div[data-testid="stForm"] .stWidgetLabel,
-        div[data-testid="stForm"] .stWidgetLabel p,
-        div[data-testid="stForm"] h3,
-        div[data-testid="stForm"] h4,
-        div[data-testid="stForm"] strong {
+        /* Forzar COLOR NEGRO / OSCURO a todos los títulos y etiquetas para que destaquen sobre fondo claro o eliminar cajas blancas */
+        [data-testid="stForm"] {
+            background-color: #161B22 !important;
+            border: 1px solid #30363D !important;
+            border-radius: 8px !important;
+        }
+
+        /* Modificar el color de los textos de los inputs directamente */
+        p, span, label, h1, h2, h3, h4, h5, h6 {
             color: #FFFFFF !important;
-            font-weight: 700 !important;
-            font-size: 0.95rem !important;
-            opacity: 1 !important;
-            visibility: visible !important;
         }
 
-        /* 3. Estilo de los campos de entrada */
-        div[data-testid="stForm"] input, 
-        div[data-testid="stForm"] textarea {
-            background-color: #1F2937 !important;
-            color: #F9FAFB !important;
-            border: 1px solid #4B5563 !important;
-            border-radius: 6px !important;
-        }
-
-        /* 4. Color del título "Editando..." */
-        .stSubheader, div[data-testid="stSubheader"] {
-            color: #38BDF8 !important;
-            font-weight: bold !important;
+        /* Estilo para las cajas de texto */
+        input[type="text"], input[type="number"], textarea {
+            background-color: #21262D !important;
+            color: #FFFFFF !important;
+            border: 1px solid #363B42 !important;
         }
         </style>
         """,
