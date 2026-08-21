@@ -495,34 +495,49 @@ elif menu == "🎂 Cumpleaños Próximos":
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
     
-    # CSS Inyectado a nivel global en la vista del App
+    # CSS de alto impacto: destruye el fondo blanco del formulario y fuerza texto visible
     st.markdown(
         """
         <style>
-        /* Forzar que el contenedor principal y cualquier formulario sean de fondo oscuro */
-        [data-testid="stAppViewContainer"],
-        [data-testid="stForm"],
-        .stForm {
-            background-color: #0E1117 !important;
-        }
-
-        /* Forzar COLOR NEGRO / OSCURO a todos los títulos y etiquetas para que destaquen sobre fondo claro o eliminar cajas blancas */
-        [data-testid="stForm"] {
+        /* 1. Cambiar el fondo blanco del formulario a un fondo oscuro profundo */
+        [data-testid="stForm"], 
+        .stForm,
+        form {
             background-color: #161B22 !important;
+            background: #161B22 !important;
             border: 1px solid #30363D !important;
-            border-radius: 8px !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
         }
 
-        /* Modificar el color de los textos de los inputs directamente */
-        p, span, label, h1, h2, h3, h4, h5, h6 {
+        /* 2. Forzar que absolutamente TODOS los elementos de texto dentro del formulario sean BLANCOS */
+        [data-testid="stForm"] *,
+        .stForm * {
             color: #FFFFFF !important;
         }
 
-        /* Estilo para las cajas de texto */
-        input[type="text"], input[type="number"], textarea {
-            background-color: #21262D !important;
+        /* 3. Título del Subheader "Editando: WILFREDO..." visible en color azul claro */
+        [data-testid="stSubheader"], 
+        [data-testid="stSubheader"] * {
+            color: #38BDF8 !important;
+            font-weight: bold !important;
+        }
+
+        /* 4. Estilo de las cajas donde se ingresa la información */
+        [data-testid="stForm"] input, 
+        [data-testid="stForm"] textarea {
+            background-color: #0D1117 !important;
             color: #FFFFFF !important;
-            border: 1px solid #363B42 !important;
+            border: 1px solid #484F58 !important;
+            border-radius: 6px !important;
+        }
+
+        /* 5. Asegurar que las etiquetas arriba de los inputs tengan peso y visibilidad */
+        [data-testid="stForm"] label p,
+        [data-testid="stForm"] .stWidgetLabel p {
+            color: #F0F6FC !important;
+            font-weight: 600 !important;
+            font-size: 0.95rem !important;
         }
         </style>
         """,
