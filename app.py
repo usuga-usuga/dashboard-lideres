@@ -466,53 +466,26 @@ elif menu == "🎂 Cumpleaños Próximos":
                                 "Cédula": valor(row, "No. Identificacion"),
                                 "Teléfono": valor(row, "No. Telefono"),
                                 "Fecha Cumpleaños": dt.strftime('%Y-%m-%d'),
-                                "Días Faltantes": dias_faltantes
+                                "Días Faltantes": "¡HOY! 🎉" if dias_faltantes == 0 else f"En {dias_faltantes} días"
                             })
                 except Exception:
                     continue
 
         if cumples:
-            # Ordenar para que aparezca primero quien cumple hoy
-            cumples = sorted(cumples, key=lambda x: x["Días Faltantes"])
+            df_cumples = pd.DataFrame(cumples)
 
-            for person in cumples:
-                dias = person["Días Faltantes"]
-                
-                # Si cumple HOY: Tarjeta de celebración destacada
-                if dias == 0:
-                    st.markdown(
-                        f"""
-                        <div style="background-color: #2D2100; border: 2px solid #FFD700; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0px 4px 10px rgba(255, 215, 0, 0.2);">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="color: #FFD700; font-size: 1.15rem; font-weight: bold;">🎉 ¡HOY DE CUMPLEAÑOS! 🎉</span>
-                                <span style="background-color: #FFD700; color: #000; font-weight: bold; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem;">HOY</span>
-                            </div>
-                            <h2 style="color: #FFFFFF; margin: 8px 0 4px 0; font-size: 1.4rem;">{person['Nombre']}</h2>
-                            <p style="color: #D1D5DB; margin: 0; font-size: 0.95rem;">
-                                🆔 <b>Cédula:</b> {person['Cédula']} &nbsp;|&nbsp; 
-                                📞 <b>Teléfono:</b> {person['Teléfono']} &nbsp;|&nbsp; 
-                                🎂 <b>Fecha:</b> {person['Fecha Cumpleaños']}
-                            </p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                # Días posteriores: Tarjeta estándar limpia
-                else:
-                    st.markdown(
-                        f"""
-                        <div style="background-color: #1E293B; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <strong style="color: #F8FAFC; font-size: 1.05rem;">{person['Nombre']}</strong>
-                                <span style="color: #94A3B8; font-size: 0.9rem; font-weight: 600;">En {dias} días</span>
-                            </div>
-                            <p style="color: #94A3B8; margin: 4px 0 0 0; font-size: 0.88rem;">
-                                🆔 Cédula: {person['Cédula']} | 📞 Teléfono: {person['Teléfono']} | 🎂 Fecha: {person['Fecha Cumpleaños']}
-                            </p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+            # Función para colorear la fila completa si es ¡HOY! 🎉
+            def resaltar_hoy(row):
+                if row["Días Faltantes"] == "¡HOY! 🎉":
+                    return ['background-color: #B45309; color: #FFFFFF; font-weight: bold;'] * len(row)
+                return [''] * len(row)
+
+            # Aplicar estilo a la tabla
+            st.dataframe(
+                df_cumples.style.apply(resaltar_hoy, axis=1),
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.success("🎈 No hay cumpleaños registrados para hoy o los próximos 5 días.")
 
