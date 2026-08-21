@@ -31,7 +31,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# ESTRUCTURA CORRECTA DE COLUMNAS (27)
+# ESTRUCTURA EXACTA DE COLUMNAS (27)
 # ==========================================
 COLUMNAS = [
     "No. Identificacion",
@@ -64,7 +64,7 @@ COLUMNAS = [
 ]
 
 # ==========================================
-# AUTENTICACIÓN
+# AUTENTICACIÓN DE USUARIOS
 # ==========================================
 def check_password():
     def password_entered():
@@ -100,9 +100,9 @@ if not check_password():
     st.stop()
 
 # ==========================================
-# CONEXIÓN A GOOGLE SHEETS (OPTIMIZADA)
+# CONEXIÓN A GOOGLE SHEETS
 # ==========================================
-@st.cache_resource(ttl=600)
+@st.cache_resource(ttl=300)
 def get_gspread_client():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -114,18 +114,15 @@ def get_gspread_client():
 
 def get_worksheet():
     client = get_gspread_client()
-    
-    # 1. Apertura directa por ID
     if "spreadsheet_id" in st.secrets and st.secrets["spreadsheet_id"].strip():
         sheet_id = st.secrets["spreadsheet_id"].strip()
         return client.open_by_key(sheet_id).sheet1
 
-    # 2. Búsqueda por título
     sheet_name = st.secrets.get("spreadsheet_title", "Base Datos LIDERES")
     return client.open(sheet_name).sheet1
 
 # ==========================================
-# LIMPIEZA Y PROCESAMIENTO DE DATOS
+# LIMPIEZA Y BARRIDO INTEGRAL DE DATOS
 # ==========================================
 def limpiar_valor(val):
     if pd.isna(val) or val is None:
@@ -157,11 +154,11 @@ def preparar_df(raw_data):
     for col in df.columns:
         df[col] = df[col].apply(limpiar_valor)
 
-    cols_num = ["No. Amigos", "PROYECCION", "REGISTROS", "Comuna", "Bello", "Otros", "Total", 
+    cols_num = ["No. Amigos", "PROYECCION", "REGISTROS", "Bello", "Otros", "Total", 
                 "MUNICIPIO DE BELLO", "OTROS MUNICIPIOS - DEPTOS", "NO ESTA EN EL CENSO", "CEDULA ERRONEA"]
     for col in cols_num:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
 
     return df
 
@@ -171,16 +168,11 @@ def cargar_datos():
     return preparar_df(raw)
 
 if "df_lideres" not in st.session_state:
-    with st.spinner("Cargando datos desde Google Sheets..."):
+    with st.spinner("Cargando y procesando la totalidad de los datos..."):
         try:
             st.session_state.df_lideres = cargar_datos()
         except Exception as e:
             st.error(f"❌ Error al conectar con Google Sheets: {e}")
-            st.info("""
-            **Pasos de solución recomendados:**
-            1. Asegúrate de haber compartido el archivo de Google Sheets con el correo de la cuenta de servicio (`client_email`).
-            2. Agrega la clave `spreadsheet_id = "TU_ID_AQUI"` dentro de los Secrets de Streamlit.
-            """)
             st.stop()
 
 df_lideres = st.session_state.df_lideres
@@ -209,7 +201,7 @@ def generar_pdf_ficha(row):
         table_data = []
         for k, v in data_dict.items():
             table_data.append([Paragraph(k, style_label), Paragraph(str(v), style_val)])
-        t = Table(table_data, colWidths=[130, 380])
+        t = Table(table_data, colWidths=[140, 370])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F9FAFB')),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
@@ -221,7 +213,7 @@ def generar_pdf_ficha(row):
     elements.append(Paragraph("📌 Información Laboral y Profesional", style_sec))
     elements.append(make_table({
         "Dependencia": valor(row, "Dependencia"),
-        "Secretaría": valor(row, "Secretaria y/o Dependencia"),
+        "Secretaría / Área": valor(row, "Secretaria y/o Dependencia"),
         "Cargo Actual": valor(row, "Cargo actual"),
         "Profesión": valor(row, "Profesion"),
         "Equipo de Apoyo": valor(row, "Apoyo")
@@ -251,7 +243,9 @@ def generar_pdf_ficha(row):
         "Votos Otros": valor(row, "Otros", "0"),
         "En Censo Bello": valor(row, "MUNICIPIO DE BELLO", "0"),
         "Otros Municipios": valor(row, "OTROS MUNICIPIOS - DEPTOS", "0"),
-        "No Censo": valor(row, "NO ESTA EN EL CENSO", "0")
+        "No Censo": valor(row, "NO ESTA EN EL CENSO", "0"),
+        "Cédula Errónea": valor(row, "CEDULA ERRONEA", "0"),
+        "Notas Adicionales": valor(row, "NOTAS", "Sin notas")
     }))
 
     doc.build(elements)
@@ -313,7 +307,7 @@ if menu == "📊 Dashboard General":
             st.plotly_chart(fig_dep, use_container_width=True)
 
         with g2:
-            st.subheader("Top 10 Líderes con Mayor Red de Amigos")
+            st.subheader("Top 10 Líderes por Red de Amigos")
             df_lideres["Nombre Completo"] = df_lideres["Nombres"] + " " + df_lideres["Apellidos"]
             top_amigos = df_lideres.sort_values(by="No. Amigos", ascending=False).head(10)
             fig_top = px.bar(top_amigos, x="No. Amigos", y="Nombre Completo", orientation='h', text="No. Amigos", color="No. Amigos")
@@ -527,9 +521,8 @@ elif menu == "✏️ Editar por Cédula":
 
                 if st.form_submit_button("💾 Guardar Cambios"):
                     ws = get_worksheet()
-                    sheet_row = row_idx + 2  # Contando el encabezado de la hoja
+                    sheet_row = row_idx + 2
                     
-                    # Actualizar celdas clave
                     ws.update_cell(sheet_row, 2, nombres)
                     ws.update_cell(sheet_row, 3, apellidos)
                     ws.update_cell(sheet_row, 4, telefono)
