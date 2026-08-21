@@ -31,36 +31,36 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# ESTRUCTURA EXACTA DE COLUMNAS (27)
+# ESTRUCTURA EXACTA DE COLUMNAS DE LA HOJA (27)
 # ==========================================
 COLUMNAS = [
-    "No. Identificacion",
-    "Nombres",
-    "Apellidos",
-    "No. Telefono",
-    "Dependencia",
-    "Secretaria y/o Dependencia",
-    "Apoyo",
-    "Profesion",
-    "Cargo actual",
-    "Correo Electronico",
-    "Redes Sociales",
-    "Fecha de Cumpleanos",
-    "Comuna",
-    "Barrio",
-    "Bello",
-    "Otros",
-    "Total",
-    "PROYECCION",
-    "REGISTROS",
-    "MUNICIPIO PROYECTADO",
-    "NOTAS",
-    "No. Amigos",
-    "MUNICIPIO DE BELLO",
-    "OTROS MUNICIPIOS - DEPTOS",
-    "NO ESTA EN EL CENSO",
-    "CEDULA ERRONEA",
-    "URL_PDF"
+    "No. Identificacion",         # Col 1 (A)
+    "Nombres",                    # Col 2 (B)
+    "Apellidos",                  # Col 3 (C)
+    "No. Telefono",               # Col 4 (D)
+    "Dependencia",                # Col 5 (E)
+    "Secretaria y/o Dependencia", # Col 6 (F)
+    "Apoyo",                      # Col 7 (G)
+    "Profesion",                  # Col 8 (H)
+    "Cargo actual",               # Col 9 (I)
+    "Correo Electronico",         # Col 10 (J)
+    "Redes Sociales",             # Col 11 (K)
+    "Fecha de Cumpleanos",        # Col 12 (L)
+    "Comuna",                     # Col 13 (M)
+    "Barrio",                     # Col 14 (N)
+    "Bello",                      # Col 15 (O)
+    "Otros",                      # Col 16 (P)
+    "Total",                      # Col 17 (Q)
+    "PROYECCION",                 # Col 18 (R)
+    "REGISTROS",                  # Col 19 (S)
+    "MUNICIPIO PROYECTADO",       # Col 20 (T)
+    "NOTAS",                      # Col 21 (U)
+    "MUNICIPIO DE BELLO",         # Col 22 (V)
+    "OTROS MUNICIPIOS - DEPTOS",  # Col 23 (W)
+    "NO ESTA EN EL CENSO",        # Col 24 (X)
+    "CEDULA ERRONEA",             # Col 25 (Y)
+    "Total No. Amigos",           # Col 26 (Z)
+    "URL_PDF"                     # Col 27 (AA)
 ]
 
 # ==========================================
@@ -144,17 +144,33 @@ def preparar_df(raw_data):
     if not raw_data or len(raw_data) <= 1:
         return pd.DataFrame(columns=COLUMNAS)
 
-    rows = raw_data[1:]
+    # Identificar la fila de encabezados reales (busca 'No. Identificacion' en las primeras filas)
+    start_idx = 1
+    for idx, r in enumerate(raw_data[:5]):
+        row_str = [str(cell).strip() for cell in r]
+        if "No. Identificacion" in row_str:
+            start_idx = idx + 1
+            break
+
+    rows = raw_data[start_idx:]
     data = []
     for r in rows:
+        # Forzar longitud de 27 columnas
         fila = [r[i] if i < len(r) else "" for i in range(len(COLUMNAS))]
-        data.append(fila)
+        
+        # Descartar filas vacías de cédula
+        cedula_val = limpiar_valor(fila[0])
+        if cedula_val:
+            data.append(fila)
 
     df = pd.DataFrame(data, columns=COLUMNAS)
+
+    # Limpiar espacios y flotantes
     for col in df.columns:
         df[col] = df[col].apply(limpiar_valor)
 
-    cols_num = ["No. Amigos", "PROYECCION", "REGISTROS", "Bello", "Otros", "Total", 
+    # Convertir métricas numéricas
+    cols_num = ["Total No. Amigos", "PROYECCION", "REGISTROS", "Bello", "Otros", "Total", 
                 "MUNICIPIO DE BELLO", "OTROS MUNICIPIOS - DEPTOS", "NO ESTA EN EL CENSO", "CEDULA ERRONEA"]
     for col in cols_num:
         if col in df.columns:
@@ -168,7 +184,7 @@ def cargar_datos():
     return preparar_df(raw)
 
 if "df_lideres" not in st.session_state:
-    with st.spinner("Cargando y procesando la totalidad de los datos..."):
+    with st.spinner("Cargando y procesando la totalidad de los datos de la hoja..."):
         try:
             st.session_state.df_lideres = cargar_datos()
         except Exception as e:
@@ -236,7 +252,7 @@ def generar_pdf_ficha(row):
 
     elements.append(Paragraph("📊 Métricas Electoral y Proyección", style_sec))
     elements.append(make_table({
-        "Total Amigos / Votos": valor(row, "No. Amigos", "0"),
+        "Total Amigos / Votos": valor(row, "Total No. Amigos", "0"),
         "Proyección": valor(row, "PROYECCION", "0"),
         "Registros": valor(row, "REGISTROS", "0"),
         "Votos Bello": valor(row, "Bello", "0"),
@@ -292,7 +308,7 @@ if menu == "📊 Dashboard General":
     else:
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Total Registros", len(df_lideres))
-        k2.metric("Total Amigos", int(df_lideres["No. Amigos"].sum()))
+        k2.metric("Total Amigos", int(df_lideres["Total No. Amigos"].sum()))
         k3.metric("Proyección Total", int(df_lideres["PROYECCION"].sum()))
         k4.metric("Total Registrados", int(df_lideres["REGISTROS"].sum()))
 
@@ -309,8 +325,8 @@ if menu == "📊 Dashboard General":
         with g2:
             st.subheader("Top 10 Líderes por Red de Amigos")
             df_lideres["Nombre Completo"] = df_lideres["Nombres"] + " " + df_lideres["Apellidos"]
-            top_amigos = df_lideres.sort_values(by="No. Amigos", ascending=False).head(10)
-            fig_top = px.bar(top_amigos, x="No. Amigos", y="Nombre Completo", orientation='h', text="No. Amigos", color="No. Amigos")
+            top_amigos = df_lideres.sort_values(by="Total No. Amigos", ascending=False).head(10)
+            fig_top = px.bar(top_amigos, x="Total No. Amigos", y="Nombre Completo", orientation='h', text="Total No. Amigos", color="Total No. Amigos")
             fig_top.update_layout(yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig_top, use_container_width=True)
 
@@ -384,7 +400,7 @@ elif menu == "🔍 Consulta Detallada":
                     with c4:
                         st.markdown("### 📊 Votación y Redes")
                         st.markdown(
-                            f"**Total Amigos:** {valor(row, 'No. Amigos', '0')}\n\n"
+                            f"**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}\n\n"
                             f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n"
                             f"**Votos Bello:** {valor(row, 'Bello', '0')}\n\n"
                             f"**Votos Otros:** {valor(row, 'Otros', '0')}\n\n"
@@ -471,7 +487,7 @@ elif menu == "➕ Crear Nuevo Registro":
                 nueva_fila = [
                     cedula, nombres, apellidos, telefono, dependencia, secretaria, apoyo, profesion,
                     cargo, correo, redes, str(cumple) if cumple else "", comuna, barrio, "", "", "",
-                    proyeccion, 0, municipio, "", amigos, "", "", "", "", url_pdf
+                    proyeccion, 0, municipio, "", "", "", "", "", amigos, url_pdf
                 ]
                 
                 try:
@@ -515,13 +531,13 @@ elif menu == "✏️ Editar por Cédula":
                     comuna = st.text_input("Comuna", value=valor(row_data, "Comuna", ""))
                     barrio = st.text_input("Barrio", value=valor(row_data, "Barrio", ""))
                     municipio = st.text_input("Municipio Proyectado", value=valor(row_data, "MUNICIPIO PROYECTADO", ""))
-                    amigos = st.number_input("No. Amigos", value=int(row_data.get("No. Amigos", 0)))
+                    amigos = st.number_input("Total No. Amigos", value=int(row_data.get("Total No. Amigos", 0)))
                     proyeccion = st.number_input("Proyección", value=int(row_data.get("PROYECCION", 0)))
                     url_pdf = st.text_input("URL PDF Planilla", value=valor(row_data, "URL_PDF", ""))
 
                 if st.form_submit_button("💾 Guardar Cambios"):
                     ws = get_worksheet()
-                    sheet_row = row_idx + 2
+                    sheet_row = row_idx + 3  # Ajustado considerando los 2 encabezados superiores
                     
                     ws.update_cell(sheet_row, 2, nombres)
                     ws.update_cell(sheet_row, 3, apellidos)
@@ -534,7 +550,7 @@ elif menu == "✏️ Editar por Cédula":
                     ws.update_cell(sheet_row, 14, barrio)
                     ws.update_cell(sheet_row, 18, proyeccion)
                     ws.update_cell(sheet_row, 20, municipio)
-                    ws.update_cell(sheet_row, 22, amigos)
+                    ws.update_cell(sheet_row, 26, amigos)
                     ws.update_cell(sheet_row, 27, url_pdf)
                     
                     st.success("✅ Cambios guardados en Google Sheets.")
