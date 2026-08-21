@@ -3,6 +3,9 @@ import pandas as pd
 import unicodedata
 from datetime import datetime, date
 import io
+import html
+import re
+import hmac
 import plotly.express as px
 import gspread
 
@@ -107,7 +110,8 @@ def verificar_login():
 
                 if boton_login:
                     if "usuarios" in st.secrets and usuario in st.secrets["usuarios"]:
-                        if str(password) == str(st.secrets["usuarios"][usuario]):
+                        password_guardada = str(st.secrets["usuarios"][usuario])
+                        if hmac.compare_digest(str(password), password_guardada):
                             st.session_state.autenticado = True
                             st.success("✅ Acceso concedido")
                             st.rerun()
@@ -236,78 +240,189 @@ df_lideres = st.session_state.df_lideres
 NOMBRES_MESES = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
 
 def normalizar(texto):
-    if not isinstance(texto, str): return ""
-    texto = unicodedata.normalize('NFD', texto)
-    return ''.join(c for c in texto if unicodedata.category(c) != 'Mn').lower().strip()
+    """Normaliza texto para comparaciones sin acentos, mayúsculas ni espacios extremos."""
+    if texto is None:
+        return ""
+    texto = unicodedata.normalize("NFD", str(texto))
+    return "".join(c for c in texto if unicodedata.category(c) != "Mn").casefold().strip()
+
+
+VALORES_VACIOS = {"", "nan", "none", "null", "<na>", "nat"}
+
+
+def limpiar_valor(valor):
+    """Limpia valores sin destruir identificadores ni textos que contengan '.0'."""
+    if valor is None:
+        return ""
+    valor = str(valor).strip()
+    if valor.casefold() in VALORES_VACIOS:
+        return ""
+    return re.sub(r"(?<=\d)\.0$", "", valor)
+
 
 def obtener_valor_campo(row, df_columns, palabras_clave, default="Sin datos"):
-    for key in palabras_clave:
-        key_norm = normalizar(key)
+    claves = [normalizar(k) for k in palabras_clave]
+
+    for col in df_columns:
+        if normalizar(col) in claves:
+            val = limpiar_valor(row[col])
+            if val:
+                return val
+
+    for key_norm in claves:
         for col in df_columns:
-            if key_norm in normalizar(col):
-                val = str(row[col]).strip()
-                if val and val.lower() not in ["nan", "none", "null", "<na>", ""]:
+            if key_norm and key_norm in normalizar(col):
+                val = limpiar_valor(row[col])
+                if val:
                     return val
+
     return default
 
+
+def encontrar_columna(df_columns, palabras_clave):
+    """Encuentra la columna más probable para un conjunto de palabras clave."""
+    claves = [normalizar(k) for k in palabras_clave]
+
+    for col in df_columns:
+        if normalizar(col) in claves:
+            return col
+
+    for key in claves:
+        for col in df_columns:
+            if key and key in normalizar(col):
+                return col
+
+    return None
+
+
+def construir_mascara_busqueda(df, termino, columnas=None):
+    """Búsqueda literal y segura; evita que caracteres especiales se interpreten como regex."""
+    if df.empty:
+        return pd.Series(False, index=df.index)
+
+    columnas = list(columnas) if columnas else df.columns.tolist()
+    termino = str(termino).strip()
+
+    if not termino:
+        return pd.Series(True, index=df.index)
+
+    return (
+        df[columnas]
+        .fillna("")
+        .astype(str)
+        .apply(lambda col: col.str.contains(
+            termino, case=False, na=False, regex=False
+        ))
+        .any(axis=1)
+    )
+
+
 def obtener_proximos_cumpleanos(df, dias_anticipacion=5):
-    if df.empty: return []
-    hoy = date.today()
-    proximos = []
-    col_dia, col_mes = None, None
-    
-    # Detección precisa de columnas de Día y Mes
-    for col in df.columns:
-        col_n = normalizar(col)
-        if ("dia" in col_n or "day" in col_n) and "mes" not in col_n:
-            col_dia = col
-        elif ("mes" in col_n or "month" in col_n) and "dia" not in col_n:
-            col_mes = col
-
-    # Fallback si no hay nombres específicos
-    if not col_dia or not col_mes:
-        for col in df.columns:
-            col_n = normalizar(col)
-            if "cumple" in col_n:
-                if not col_dia: col_dia = col
-                elif not col_mes: col_mes = col
-
-    if not col_dia or not col_mes:
+    if df.empty:
         return []
 
-    for idx, row in df.iterrows():
-        val_dia = str(row[col_dia]).strip()
-        val_mes = str(row[col_mes]).strip()
-        dia, mes = None, None
-        
-        if "/" in val_dia or "-" in val_dia:
-            partes = val_dia.replace("-", "/").split("/")
-            if len(partes) >= 2:
-                try: dia, mes = int(partes[0]), int(partes[1])
-                except ValueError: continue
-        elif val_dia.isdigit() and val_mes.isdigit():
-            dia, mes = int(val_dia), int(val_mes)
+    hoy = date.today()
+    proximos = []
 
-        if dia and mes and 1 <= dia <= 31 and 1 <= mes <= 12:
+    col_dia = encontrar_columna(df.columns, ["día cumpleaños", "dia cumpleaños"])
+    col_mes = encontrar_columna(df.columns, ["mes cumpleaños", "mes cumpleaños"])
+
+    # Si no existen columnas específicas, busca columnas de día/mes como respaldo.
+    if not col_dia:
+        col_dia = encontrar_columna(df.columns, ["dia"])
+    if not col_mes:
+        col_mes = encontrar_columna(df.columns, ["mes"])
+
+    col_fecha = None
+    if not col_dia or not col_mes:
+        col_fecha = encontrar_columna(
+            df.columns,
+            ["fecha cumpleaños", "fecha de cumpleaños", "cumpleaños", "cumpleanos"]
+        )
+
+    def parsear_fecha(dia_raw, mes_raw=""):
+        dia_raw = limpiar_valor(dia_raw)
+        mes_raw = limpiar_valor(mes_raw)
+
+        if dia_raw and ("/" in dia_raw or "-" in dia_raw):
+            partes = re.split(r"[/-]", dia_raw)
+            if len(partes) >= 2:
+                try:
+                    a, b = int(partes[0]), int(partes[1])
+                    if a > 31 and 1 <= b <= 12:
+                        return int(partes[2]) if len(partes) > 2 else None, b
+                    return a, b
+                except (ValueError, TypeError):
+                    pass
+
+        if dia_raw.isdigit() and mes_raw.isdigit():
+            return int(dia_raw), int(mes_raw)
+
+        return None, None
+
+    if not col_fecha and (not col_dia or not col_mes):
+        return []
+
+    for _, row in df.iterrows():
+        try:
+            if col_fecha:
+                dia, mes = parsear_fecha(row[col_fecha])
+            else:
+                dia, mes = parsear_fecha(row[col_dia], row[col_mes])
+
+            if not dia or not mes or not (1 <= dia <= 31 and 1 <= mes <= 12):
+                continue
+
             try:
                 cumple = date(hoy.year, mes, dia)
-                if cumple < hoy: cumple = date(hoy.year + 1, mes, dia)
-                diferencia = (cumple - hoy).days
-                
-                if 0 <= diferencia <= dias_anticipacion:
-                    nombres = obtener_valor_campo(row, df.columns, ["nombres", "nombre"], "")
-                    apellidos = obtener_valor_campo(row, df.columns, ["apellidos", "apellido"], "")
-                    proximos.append({
-                        "nombre": f"{nombres} {apellidos}".strip().upper() or "Usuario sin nombre",
-                        "dias": diferencia,
-                        "fecha_str": f"{dia} de {NOMBRES_MESES.get(mes, '')}",
-                        "telefono": obtener_valor_campo(row, df.columns, ["telefono", "celular"]),
-                        "dependencia": obtener_valor_campo(row, df.columns, ["dependencia", "secretaria"])
-                    })
-            except Exception: continue
+            except ValueError:
+                if mes == 2 and dia == 29:
+                    anio = hoy.year
+                    while True:
+                        anio += 1
+                        try:
+                            cumple = date(anio, mes, dia)
+                            break
+                        except ValueError:
+                            continue
+                else:
+                    continue
 
-    proximos.sort(key=lambda x: x["dias"])
+            if cumple < hoy:
+                anio = hoy.year + 1
+                try:
+                    cumple = date(anio, mes, dia)
+                except ValueError:
+                    if mes == 2 and dia == 29:
+                        while True:
+                            anio += 1
+                            try:
+                                cumple = date(anio, mes, dia)
+                                break
+                            except ValueError:
+                                continue
+                    else:
+                        continue
+
+            diferencia = (cumple - hoy).days
+
+            if 0 <= diferencia <= dias_anticipacion:
+                nombres = obtener_valor_campo(row, df.columns, ["nombres", "nombre"], "")
+                apellidos = obtener_valor_campo(row, df.columns, ["apellidos", "apellido"], "")
+
+                proximos.append({
+                    "nombre": f"{nombres} {apellidos}".strip().upper() or "USUARIO SIN NOMBRE",
+                    "dias": diferencia,
+                    "fecha_str": f"{dia} de {NOMBRES_MESES.get(mes, '')}",
+                    "telefono": obtener_valor_campo(row, df.columns, ["telefono", "celular"]),
+                    "dependencia": obtener_valor_campo(row, df.columns, ["dependencia", "secretaria"])
+                })
+        except (ValueError, TypeError, KeyError):
+            continue
+
+    proximos.sort(key=lambda x: (x["dias"], x["nombre"]))
     return proximos
+
 
 def generar_pdf_ficha(row, df_columns):
     buffer = io.BytesIO()
@@ -322,14 +437,15 @@ def generar_pdf_ficha(row, df_columns):
     nombre_comp = f"{nombres} {apellidos}".strip().upper() or "FICHA DE USUARIO"
     cedula = obtener_valor_campo(row, df_columns, ["identificacion", "cedula", "doc", "id"])
     
-    story.append(Paragraph(f"<b>{nombre_comp}</b>", title_style))
-    story.append(Paragraph(f"Cédula / ID: <b>{cedula}</b>", subtitle_style))
+    story.append(Paragraph(f"<b>{html.escape(nombre_comp)}</b>", title_style))
+    story.append(Paragraph(f"Cédula / ID: <b>{html.escape(cedula)}</b>", subtitle_style))
     story.append(Spacer(1, 12))
     
     data = [[Paragraph("<b>CAMPO</b>", styles['Normal']), Paragraph("<b>DETALLE</b>", styles['Normal'])]]
     for col in df_columns:
         val = str(row[col]).strip()
-        data.append([col, val if val and val.lower() not in ["nan", "none", "null", "<na>"] else "Sin datos"])
+        val_limpio = limpiar_valor(val)
+        data.append([html.escape(str(col)), html.escape(val_limpio) if val_limpio else "Sin datos"])
     
     table = Table(data, colWidths=[180, 340])
     table.setStyle(TableStyle([
@@ -418,7 +534,7 @@ if menu == "🔍 Consulta Detallada":
             if not cols_target:
                 cols_target = df_lideres.columns.tolist()
 
-            mask = df_lideres[cols_target].astype(str).apply(lambda row: row.str.contains(term, case=False, na=False)).any(axis=1)
+            mask = construir_mascara_busqueda(df_lideres, term, cols_target)
             resultado = df_lideres[mask]
 
         if not resultado.empty:
@@ -556,8 +672,9 @@ elif menu == "📈 Panel de Control Ejecutivos":
         # Gráfico 2: Top Líderes con más Amigos/Registros
         if col_amigos:
             amigos_col = col_amigos[0]
-            col_nombres = [c for c in df_lideres.columns if "NOMBRE" in c.upper()]
-            nom_col = col_nombres[0] if col_nombres else df_lideres.columns[0]
+            nom_col = encontrar_columna(df_lideres.columns, ["nombres", "nombre"])
+            if not nom_col:
+                nom_col = df_lideres.columns[0]
             
             df_temp = df_lideres.copy()
             df_temp["Amigos_Num"] = pd.to_numeric(df_temp[amigos_col], errors='coerce').fillna(0)
@@ -593,14 +710,21 @@ elif menu == "➕ Registro de Nuevo Usuario":
             if guardar:
                 sheet = conectar_google_sheets()
                 if sheet:
-                    nueva_fila = [str(datos_nuevos.get(col, "")) for col in cols]
-                    sheet.append_row(nueva_fila)
-                    
-                    nuevo_row = pd.DataFrame([datos_nuevos]).astype(str)
-                    st.session_state.df_lideres = pd.concat([st.session_state.df_lideres, nuevo_row], ignore_index=True)
-                    
-                    st.success("✅ Usuario registrado exitosamente en Google Sheets y sincronizado.")
-                    st.rerun()
+                    try:
+                        nueva_fila = [limpiar_valor(datos_nuevos.get(col, "")) for col in cols]
+                        sheet.append_row(nueva_fila, value_input_option="USER_ENTERED")
+
+                        nuevo_row = pd.DataFrame([nueva_fila], columns=cols).astype(str)
+                        st.session_state.df_lideres = pd.concat(
+                            [st.session_state.df_lideres, nuevo_row],
+                            ignore_index=True
+                        )
+
+                        st.success("✅ Usuario registrado exitosamente en Google Sheets y sincronizado.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ No fue posible registrar el usuario: {e}")
+
 
 # ==============================================================================
 # MÓDULO 4: EDITAR / MODIFICAR REGISTROS
@@ -613,7 +737,19 @@ elif menu == "✏️ Editar / Modificar Registros":
         cedula_buscar = st.text_input("Ingrese la Cédula/ID del usuario a editar:", placeholder="Ej: 3474244")
         
         if cedula_buscar.strip():
-            mask = df_lideres.astype(str).apply(lambda row: row.str.contains(cedula_buscar.strip(), case=False, na=False)).any(axis=1)
+            col_id = encontrar_columna(
+                df_lideres.columns,
+                ["cédula / identificación", "cedula", "identificacion", "documento", "doc"]
+            )
+            if col_id:
+                termino_id = cedula_buscar.strip()
+                mask = df_lideres[col_id].fillna("").astype(str).str.strip().eq(termino_id)
+                if not mask.any():
+                    mask = df_lideres[col_id].fillna("").astype(str).str.contains(
+                        termino_id, case=False, na=False, regex=False
+                    )
+            else:
+                mask = construir_mascara_busqueda(df_lideres, cedula_buscar.strip())
             idx_match = df_lideres[mask].index
 
             if len(idx_match) > 0:
@@ -665,7 +801,7 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
         
         df_editable = df_lideres.copy()
         if filtro_tabla.strip():
-            mask = df_editable.astype(str).apply(lambda row: row.str.contains(filtro_tabla.strip(), case=False, na=False)).any(axis=1)
+            mask = construir_mascara_busqueda(df_editable, filtro_tabla.strip())
             df_editable = df_editable[mask]
 
         df_modificado = st.data_editor(
@@ -683,22 +819,47 @@ elif menu == "📋 Base de Datos Completa (Edición Directa)":
                 sheet = conectar_google_sheets()
                 if sheet:
                     try:
-                        # Si hay filtro activo se actualizan solo los registros filtrados en el estado de sesión
                         if filtro_tabla.strip():
-                            st.session_state.df_lideres.update(df_modificado)
+                            base = st.session_state.df_lideres.copy()
+                            indices_originales = set(base.index)
+                            indices_editados = set(df_modificado.index)
+                            indices_nuevos = indices_editados - indices_originales
+
+                            if indices_nuevos:
+                                st.error(
+                                    "❌ Hay filas nuevas mientras existe un filtro activo. "
+                                    "Quite el filtro, agregue las filas y vuelva a guardar."
+                                )
+                                st.stop()
+
+                            for indice in df_modificado.index:
+                                base.loc[indice, df_modificado.columns] = df_modificado.loc[indice]
+                            st.session_state.df_lideres = base
                         else:
                             st.session_state.df_lideres = df_modificado.copy()
-                        
-                        # Conservar los encabezados originales de la hoja de cálculo
+
+                        # Conserva todos los encabezados originales de la hoja.
                         offset = st.session_state.get("header_offset", 1)
                         datos_hoja = sheet.get_all_values()
-                        encabezados = datos_hoja[:offset] if len(datos_hoja) >= offset else [list(st.session_state.df_lideres.columns)]
-                        
-                        nuevas_filas = st.session_state.df_lideres.fillna("").values.tolist()
+                        encabezados = (
+                            datos_hoja[:offset]
+                            if len(datos_hoja) >= offset
+                            else [list(st.session_state.df_lideres.columns)]
+                        )
+
+                        nuevas_filas = (
+                            st.session_state.df_lideres
+                            .fillna("")
+                            .astype(str)
+                            .values
+                            .tolist()
+                        )
                         contenido_total = encabezados + nuevas_filas
-                        
+
+                        # Una única escritura evita dejar la hoja parcialmente actualizada.
                         sheet.clear()
                         actualizar_hoja_gspread(sheet, "A1", contenido_total)
+
                         st.success("✅ Base de datos actualizada con éxito en Google Sheets.")
                         st.rerun()
                     except Exception as e:
