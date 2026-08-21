@@ -1,3 +1,81 @@
+# ==========================================
+# FIX VISUAL DE COLORES Y CONTRASTE (AGREGAR AL INICIO)
+# ==========================================
+st.markdown(
+    """
+    <style>
+    /* 1. Fondo general de la aplicación */
+    .stApp, [data-testid="stAppViewContainer"] {
+        background-color: #0F172A !important;
+        color: #F8FAFC !important;
+    }
+
+    /* 2. Tarjetas de métricas del Dashboard (st.metric) */
+    div[data-testid="stMetric"], 
+    div[data-testid="metric-container"],
+    .stMetric {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    /* Texto superior / Titulo de la métrica */
+    div[data-testid="stMetric"] [data-testid="stMetricLabel"] *,
+    div[data-testid="stMetricLabel"] * {
+        color: #38BDF8 !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* Número / Valor de la métrica */
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] *,
+    div[data-testid="stMetricValue"] * {
+        color: #FFFFFF !important;
+        font-weight: 800 !important;
+        font-size: 1.8rem !important;
+    }
+
+    /* 3. Formularios (st.form) y cajas de edición */
+    div[data-testid="stForm"], .stForm, form {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 24px !important;
+    }
+
+    /* Forzar texto visible en etiquetas y títulos */
+    p, span, label, h1, h2, h3, h4, h5, h6,
+    [data-testid="stForm"] label,
+    [data-testid="stForm"] .stWidgetLabel p {
+        color: #F8FAFC !important;
+        font-weight: 600 !important;
+        opacity: 1 !important;
+    }
+
+    /* Subtítulos dentro de formularios */
+    [data-testid="stSubheader"] *, .stSubheader * {
+        color: #38BDF8 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Campos de entrada */
+    input[type="text"], input[type="number"], textarea, select {
+        background-color: #0F172A !important;
+        color: #FFFFFF !important;
+        border: 1px solid #475569 !important;
+        border-radius: 6px !important;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #38BDF8 !important;
+        outline: none !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 import streamlit as st
 import pandas as pd
 
