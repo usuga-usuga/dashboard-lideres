@@ -13,7 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ==========================================
-# CONFIGURACIÓN GENERAL Y ESTILOS DE LA APP
+# CONFIGURACIÓN GENERAL Y ESTILOS
 # ==========================================
 st.set_page_config(
     page_title="Gestión de Líderes y Contactos",
@@ -30,37 +30,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# ESTRUCTURA EXACTA DE COLUMNAS DE LA HOJA (27)
-# ==========================================
 COLUMNAS = [
-    "No. Identificacion",         # Col 1 (A)
-    "Nombres",                    # Col 2 (B)
-    "Apellidos",                  # Col 3 (C)
-    "No. Telefono",               # Col 4 (D)
-    "Dependencia",                # Col 5 (E)
-    "Secretaria y/o Dependencia", # Col 6 (F)
-    "Apoyo",                      # Col 7 (G)
-    "Profesion",                  # Col 8 (H)
-    "Cargo actual",               # Col 9 (I)
-    "Correo Electronico",         # Col 10 (J)
-    "Redes Sociales",             # Col 11 (K)
-    "Fecha de Cumpleanos",        # Col 12 (L)
-    "Comuna",                     # Col 13 (M)
-    "Barrio",                     # Col 14 (N)
-    "Bello",                      # Col 15 (O)
-    "Otros",                      # Col 16 (P)
-    "Total",                      # Col 17 (Q)
-    "PROYECCION",                 # Col 18 (R)
-    "REGISTROS",                  # Col 19 (S)
-    "MUNICIPIO PROYECTADO",       # Col 20 (T)
-    "NOTAS",                      # Col 21 (U)
-    "MUNICIPIO DE BELLO",         # Col 22 (V)
-    "OTROS MUNICIPIOS - DEPTOS",  # Col 23 (W)
-    "NO ESTA EN EL CENSO",        # Col 24 (X)
-    "CEDULA ERRONEA",             # Col 25 (Y)
-    "Total No. Amigos",           # Col 26 (Z)
-    "URL_PDF"                     # Col 27 (AA)
+    "No. Identificacion", "Nombres", "Apellidos", "No. Telefono", "Dependencia",
+    "Secretaria y/o Dependencia", "Apoyo", "Profesion", "Cargo actual", "Correo Electronico",
+    "Redes Sociales", "Fecha de Cumpleanos", "Comuna", "Barrio", "Bello", "Otros",
+    "Total", "PROYECCION", "REGISTROS", "MUNICIPIO PROYECTADO", "NOTAS",
+    "MUNICIPIO DE BELLO", "OTROS MUNICIPIOS - DEPTOS", "NO ESTA EN EL CENSO",
+    "CEDULA ERRONEA", "Total No. Amigos", "URL_PDF"
 ]
 
 # ==========================================
@@ -68,12 +44,13 @@ COLUMNAS = [
 # ==========================================
 def check_password():
     def password_entered():
-        user = st.session_state["username"]
-        pwd = st.session_state["password"]
+        user = st.session_state.get("username", "")
+        pwd = st.session_state.get("password", "")
         if user in st.secrets.get("usuarios", {}) and hmac.compare_digest(pwd, st.secrets["usuarios"][user]):
             st.session_state["password_correct"] = True
             st.session_state["logged_user"] = user
-            del st.session_state["password"]
+            if "password" in st.session_state:
+                del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
 
@@ -104,10 +81,7 @@ if not check_password():
 # ==========================================
 @st.cache_resource(ttl=300)
 def get_gspread_client():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
@@ -115,14 +89,12 @@ def get_gspread_client():
 def get_worksheet():
     client = get_gspread_client()
     if "spreadsheet_id" in st.secrets and st.secrets["spreadsheet_id"].strip():
-        sheet_id = st.secrets["spreadsheet_id"].strip()
-        return client.open_by_key(sheet_id).sheet1
-
+        return client.open_by_key(st.secrets["spreadsheet_id"].strip()).sheet1
     sheet_name = st.secrets.get("spreadsheet_title", "Base Datos LIDERES")
     return client.open(sheet_name).sheet1
 
 # ==========================================
-# LIMPIEZA Y BARRIDO INTEGRAL DE DATOS
+# LIMPIEZA Y BARRIDO DE DATOS
 # ==========================================
 def limpiar_valor(val):
     if pd.isna(val) or val is None:
@@ -142,9 +114,8 @@ def valor(row, columna, default="Sin datos"):
 
 def preparar_df(raw_data):
     if not raw_data or len(raw_data) <= 1:
-        return pd.DataFrame(columns=COLUMNAS)
+        return pd.DataFrame(columns=COLUMNAS + ["_sheet_row"])
 
-    # Identificar la fila de encabezados reales (busca 'No. Identificacion' en las primeras filas)
     start_idx = 1
     for idx, r in enumerate(raw_data[:5]):
         row_str = [str(cell).strip() for cell in r]
@@ -154,23 +125,19 @@ def preparar_df(raw_data):
 
     rows = raw_data[start_idx:]
     data = []
-    for r in rows:
-        # Forzar longitud de 27 columnas
+    for real_idx, r in enumerate(rows, start=start_idx + 1):
         fila = [r[i] if i < len(r) else "" for i in range(len(COLUMNAS))]
-        
-        # Descartar filas vacías de cédula
         cedula_val = limpiar_valor(fila[0])
         if cedula_val:
+            fila.append(real_idx) # Guarda la fila real exacta en Google Sheets
             data.append(fila)
 
-    df = pd.DataFrame(data, columns=COLUMNAS)
+    df = pd.DataFrame(data, columns=COLUMNAS + ["_sheet_row"])
 
-    # Limpiar espacios y flotantes
-    for col in df.columns:
+    for col in COLUMNAS:
         df[col] = df[col].apply(limpiar_valor)
 
-    # Convertir métricas numéricas
-    cols_num = ["Total No. Amigos", "PROYECCION", "REGISTROS", "Bello", "Otros", "Total", 
+    cols_num = ["Total No. Amigos", "PROYECCION", "REGISTROS", "Bello", "Otros", "Total",
                 "MUNICIPIO DE BELLO", "OTROS MUNICIPIOS - DEPTOS", "NO ESTA EN EL CENSO", "CEDULA ERRONEA"]
     for col in cols_num:
         if col in df.columns:
@@ -214,9 +181,7 @@ def generar_pdf_ficha(row):
     elements.append(Spacer(1, 10))
 
     def make_table(data_dict):
-        table_data = []
-        for k, v in data_dict.items():
-            table_data.append([Paragraph(k, style_label), Paragraph(str(v), style_val)])
+        table_data = [[Paragraph(k, style_label), Paragraph(str(v), style_val)] for k, v in data_dict.items()]
         t = Table(table_data, colWidths=[140, 370])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F9FAFB')),
@@ -275,21 +240,18 @@ with st.sidebar:
     st.title("📌 Menú Principal")
     st.write(f"👤 **Usuario:** {st.session_state.get('logged_user', 'Admin')}")
 
-    menu = st.radio(
-        "Navegación",
-        [
-            "📊 Dashboard General",
-            "🔍 Consulta Detallada",
-            "🎂 Cumpleaños Próximos",
-            "➕ Crear Nuevo Registro",
-            "✏️ Editar por Cédula",
-            "📋 Editor de Tabla Directo"
-        ]
-    )
+    menu = st.radio("Navegación", [
+        "📊 Dashboard General",
+        "🔍 Consulta Detallada",
+        "🎂 Cumpleaños Próximos",
+        "➕ Crear Nuevo Registro",
+        "✏️ Editar por Cédula",
+        "📋 Editor de Tabla Directo"
+    ])
 
     st.markdown("---")
     if st.button("🔄 Recargar datos de Google Sheets", use_container_width=True):
-        st.cache_data.clear()
+        st.cache_resource.clear()
         st.session_state.df_lideres = cargar_datos()
         st.rerun()
 
@@ -298,11 +260,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# MÓDULO 1: DASHBOARD GENERAL
+# MÓDULOS
 # ==========================================
 if menu == "📊 Dashboard General":
     st.title("📊 Dashboard General de Líderes")
-
     if df_lideres.empty:
         st.info("No hay datos para mostrar.")
     else:
@@ -330,9 +291,6 @@ if menu == "📊 Dashboard General":
             fig_top.update_layout(yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig_top, use_container_width=True)
 
-# ==========================================
-# MÓDULO 2: CONSULTA DETALLADA
-# ==========================================
 elif menu == "🔍 Consulta Detallada":
     st.title("🔍 Consulta Detallada de Líderes")
     if df_lideres.empty:
@@ -340,8 +298,7 @@ elif menu == "🔍 Consulta Detallada":
     else:
         criterio = st.radio("Buscar por:", ["Todos los campos", "Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
         busqueda = st.text_input("Ingrese término de búsqueda:")
-        resultado = pd.DataFrame()
-
+        
         if busqueda.strip():
             term = busqueda.strip()
             if criterio == "Cédula / Identificación":
@@ -351,107 +308,65 @@ elif menu == "🔍 Consulta Detallada":
                 b = df_lideres["Apellidos"].map(limpiar_valor)
                 mask = a.str.contains(re.escape(term), case=False, na=False) | b.str.contains(re.escape(term), case=False, na=False)
             else:
-                mask = df_lideres.apply(lambda col: col.map(limpiar_valor).str.contains(re.escape(term), case=False, na=False), axis=0).any(axis=1)
+                mask = df_lideres[COLUMNAS].apply(lambda col: col.map(limpiar_valor).str.contains(re.escape(term), case=False, na=False), axis=0).any(axis=1)
 
             resultado = df_lideres.loc[mask]
 
-        if not resultado.empty:
-            st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
-            for idx, row in resultado.iterrows():
-                nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip()
-                cedula = valor(row, "No. Identificacion")
-                dependencia = valor(row, "Dependencia")
+            if not resultado.empty:
+                st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
+                for idx, row in resultado.iterrows():
+                    nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip()
+                    cedula = valor(row, "No. Identificacion")
+                    dependencia = valor(row, "Dependencia")
 
-                with st.container(border=True):
-                    h1, h2 = st.columns([4, 1.2])
-                    with h1:
-                        st.markdown(f"## **{nombre.upper() or 'NOMBRE NO REGISTRADO'}**")
-                        st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
-                    with h2:
-                        pdf_file = generar_pdf_ficha(row)
-                        safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", cedula)
-                        st.download_button("📄 Descargar Ficha PDF", data=pdf_file, file_name=f"Ficha_{safe_id or idx}.pdf", mime="application/pdf", key=f"pdf_{idx}")
+                    with st.container(border=True):
+                        h1, h2 = st.columns([4, 1.2])
+                        with h1:
+                            st.markdown(f"## **{nombre.upper() or 'NOMBRE NO REGISTRADO'}**")
+                            st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
+                        with h2:
+                            pdf_file = generar_pdf_ficha(row)
+                            safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", cedula)
+                            st.download_button("📄 Descargar Ficha PDF", data=pdf_file, file_name=f"Ficha_{safe_id or idx}.pdf", mime="application/pdf", key=f"pdf_{idx}")
 
-                    st.markdown("---")
-
-                    # Fila 1: Datos Principales (Laboral, Contacto, Ubicación)
-                    col_lab, col_con, col_ubi = st.columns(3)
-                    with col_lab:
-                        st.markdown("### 📌 Datos Principales")
-                        st.markdown(
-                            f"**Dependencia:** {valor(row, 'Dependencia')}\n\n"
-                            f"**Secretaría:** {valor(row, 'Secretaria y/o Dependencia')}\n\n"
-                            f"**Cargo actual:** {valor(row, 'Cargo actual')}\n\n"
-                            f"**Profesión:** {valor(row, 'Profesion')}\n\n"
-                            f"**Equipo Apoyo:** {valor(row, 'Apoyo')}"
-                        )
-                    with col_con:
-                        st.markdown("### 📞 Contacto")
-                        st.markdown(
-                            f"**Teléfono:** {valor(row, 'No. Telefono')}\n\n"
-                            f"**Correo:** {valor(row, 'Correo Electronico')}\n\n"
-                            f"**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n"
-                            f"**Redes Sociales:** {valor(row, 'Redes Sociales')}"
-                        )
-                    with col_ubi:
-                        st.markdown("### 📍 Ubicación")
-                        st.markdown(
-                            f"**Comuna:** {valor(row, 'Comuna')}\n\n"
-                            f"**Barrio:** {valor(row, 'Barrio')}"
-                        )
-
-                    st.markdown("---")
-
-                    # Fila 2: Categorías Específicas de la Hoja
-                    col_vot, col_proy, col_plan = st.columns(3)
-                    
-                    with col_vot:
-                        st.markdown("### 🗳️ Votantes")
-                        st.markdown(
-                            f"**Bello:** {valor(row, 'Bello', '0')}\n\n"
-                            f"**Otros:** {valor(row, 'Otros', '0')}\n\n"
-                            f"**Total:** {valor(row, 'Total', '0')}"
-                        )
-
-                    with col_proy:
-                        st.markdown("### 📈 Proyección y Notas")
-                        st.markdown(
-                            f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n"
-                            f"**Registros:** {valor(row, 'REGISTROS', '0')}\n\n"
-                            f"**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n"
-                            f"**Notas:** {valor(row, 'NOTAS', 'Sin notas')}"
-                        )
-
-                    with col_plan:
-                        st.markdown("### 📋 Planillas y Registros")
-                        st.markdown(
-                            f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n"
-                            f"**Otros Municipios - Deptos:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n"
-                            f"**No está en el censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n"
-                            f"**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n"
-                            f"**Total No. Amigos:** {valor(row, 'Total No. Amigos', '0')}"
-                        )
-
-                    url = valor(row, "URL_PDF", "")
-                    if url.startswith(("http://", "https://")):
                         st.markdown("---")
-                        st.link_button("🔗 Abrir PDF Planilla", url)
+                        col_lab, col_con, col_ubi = st.columns(3)
+                        with col_lab:
+                            st.markdown("### 📌 Datos Principales")
+                            st.markdown(f"**Dependencia:** {valor(row, 'Dependencia')}\n\n**Secretaría:** {valor(row, 'Secretaria y/o Dependencia')}\n\n**Cargo actual:** {valor(row, 'Cargo actual')}\n\n**Profesión:** {valor(row, 'Profesion')}\n\n**Equipo Apoyo:** {valor(row, 'Apoyo')}")
+                        with col_con:
+                            st.markdown("### 📞 Contacto")
+                            st.markdown(f"**Teléfono:** {valor(row, 'No. Telefono')}\n\n**Correo:** {valor(row, 'Correo Electronico')}\n\n**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n**Redes Sociales:** {valor(row, 'Redes Sociales')}")
+                        with col_ubi:
+                            st.markdown("### 📍 Ubicación")
+                            st.markdown(f"**Comuna:** {valor(row, 'Comuna')}\n\n**Barrio:** {valor(row, 'Barrio')}")
 
-        elif busqueda.strip():
-            st.info("No se encontraron registros que coincidan con la búsqueda.")
+                        st.markdown("---")
+                        col_vot, col_proy, col_plan = st.columns(3)
+                        with col_vot:
+                            st.markdown("### 🗳️ Votantes")
+                            st.markdown(f"**Bello:** {valor(row, 'Bello', '0')}\n\n**Otros:** {valor(row, 'Otros', '0')}\n\n**Total:** {valor(row, 'Total', '0')}")
+                        with col_proy:
+                            st.markdown("### 📈 Proyección y Notas")
+                            st.markdown(f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n**Registros:** {valor(row, 'REGISTROS', '0')}\n\n**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n**Notas:** {valor(row, 'NOTAS', 'Sin notas')}")
+                        with col_plan:
+                            st.markdown("### 📋 Planillas y Registros")
+                            st.markdown(f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n**Otros Municipios:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n**No en Censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}")
 
-# ==========================================
-# MÓDULO 3: CUMPLEAÑOS PRÓXIMOS
-# ==========================================
+                        url = valor(row, "URL_PDF", "")
+                        if url.startswith(("http://", "https://")):
+                            st.markdown("---")
+                            st.link_button("🔗 Abrir PDF Planilla", url)
+            else:
+                st.info("No se encontraron registros que coincidan con la búsqueda.")
+
 elif menu == "🎂 Cumpleaños Próximos":
     st.title("🎂 Cumpleaños Hoy y Próximos 5 Días")
-    
     if df_lideres.empty:
         st.info("No hay datos cargados.")
     else:
         hoy = pd.Timestamp.now().date()
         cumples = []
-
         for idx, row in df_lideres.iterrows():
             f_str = valor(row, "Fecha de Cumpleanos", "")
             if f_str:
@@ -473,28 +388,16 @@ elif menu == "🎂 Cumpleaños Próximos":
 
         if cumples:
             df_cumples = pd.DataFrame(cumples)
-
-            # Función para colorear la fila completa si es ¡HOY! 🎉
             def resaltar_hoy(row):
                 if row["Días Faltantes"] == "¡HOY! 🎉":
                     return ['background-color: #B45309; color: #FFFFFF; font-weight: bold;'] * len(row)
                 return [''] * len(row)
-
-            # Aplicar estilo a la tabla
-            st.dataframe(
-                df_cumples.style.apply(resaltar_hoy, axis=1),
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(df_cumples.style.apply(resaltar_hoy, axis=1), use_container_width=True, hide_index=True)
         else:
             st.success("🎈 No hay cumpleaños registrados para hoy o los próximos 5 días.")
 
-# ==========================================
-# MÓDULO 4: CREAR NUEVO REGISTRO
-# ==========================================
 elif menu == "➕ Crear Nuevo Registro":
     st.title("➕ Agregar Nuevo Líder")
-
     with st.form("form_nuevo_lider"):
         c1, c2 = st.columns(2)
         with c1:
@@ -519,7 +422,6 @@ elif menu == "➕ Crear Nuevo Registro":
             url_pdf = st.text_input("URL PDF Planilla")
 
         submitted = st.form_submit_button("💾 Guardar Líder", type="primary")
-
         if submitted:
             if not cedula or not nombres:
                 st.error("Por favor complete los campos obligatorios (*).")
@@ -529,35 +431,29 @@ elif menu == "➕ Crear Nuevo Registro":
                     cargo, correo, redes, str(cumple) if cumple else "", comuna, barrio, "", "", "",
                     proyeccion, 0, municipio, "", "", "", "", "", amigos, url_pdf
                 ]
-                
                 try:
                     ws = get_worksheet()
                     ws.append_row(nueva_fila)
                     st.success("✅ ¡Registro agregado con éxito a Google Sheets!")
-                    st.cache_data.clear()
+                    st.cache_resource.clear()
                     st.session_state.df_lideres = cargar_datos()
                 except Exception as e:
                     st.error(f"Error al escribir en Google Sheets: {e}")
 
-# ==========================================
-# MÓDULO 5: EDITAR POR CÉDULA
-# ==========================================
 elif menu == "✏️ Editar por Cédula":
     st.title("✏️ Editar Líder por Cédula")
-    
     ced_buscar = st.text_input("Ingrese la Cédula a Editar:")
     if ced_buscar:
         match = df_lideres[df_lideres["No. Identificacion"] == ced_buscar.strip()]
         if match.empty:
             st.warning("No se encontró ningún registro con esta cédula.")
         else:
-            row_idx = match.index[0]
             row_data = match.iloc[0]
+            sheet_row = int(row_data["_sheet_row"]) # Utiliza la fila real garantizada
             
             with st.form("form_editar_lider"):
                 st.subheader(f"Editando: {row_data['Nombres']} {row_data['Apellidos']}")
                 c1, c2 = st.columns(2)
-                
                 with c1:
                     nombres = st.text_input("Nombres", value=valor(row_data, "Nombres", ""))
                     apellidos = st.text_input("Apellidos", value=valor(row_data, "Apellidos", ""))
@@ -565,7 +461,6 @@ elif menu == "✏️ Editar por Cédula":
                     dependencia = st.text_input("Dependencia", value=valor(row_data, "Dependencia", ""))
                     secretaria = st.text_input("Secretaría", value=valor(row_data, "Secretaria y/o Dependencia", ""))
                     cargo = st.text_input("Cargo Actual", value=valor(row_data, "Cargo actual", ""))
-                
                 with c2:
                     correo = st.text_input("Correo", value=valor(row_data, "Correo Electronico", ""))
                     comuna = st.text_input("Comuna", value=valor(row_data, "Comuna", ""))
@@ -577,8 +472,6 @@ elif menu == "✏️ Editar por Cédula":
 
                 if st.form_submit_button("💾 Guardar Cambios"):
                     ws = get_worksheet()
-                    sheet_row = row_idx + 3  # Ajustado considerando los 2 encabezados superiores
-                    
                     ws.update_cell(sheet_row, 2, nombres)
                     ws.update_cell(sheet_row, 3, apellidos)
                     ws.update_cell(sheet_row, 4, telefono)
@@ -594,25 +487,26 @@ elif menu == "✏️ Editar por Cédula":
                     ws.update_cell(sheet_row, 27, url_pdf)
                     
                     st.success("✅ Cambios guardados en Google Sheets.")
-                    st.cache_data.clear()
+                    st.cache_resource.clear()
                     st.session_state.df_lideres = cargar_datos()
                     st.rerun()
 
-# ==========================================
-# MÓDULO 6: EDITOR DE TABLA DIRECTO
-# ==========================================
 elif menu == "📋 Editor de Tabla Directo":
     st.title("📋 Editor de Tabla en Tiempo Real")
     st.info("Modifique los campos directamente en la tabla y presione 'Guardar Todo' para sincronizar con Google Sheets.")
 
-    edited_df = st.data_editor(df_lideres, num_rows="dynamic", use_container_width=True)
+    # Excluir la columna interna _sheet_row en la visualización
+    df_display = df_lideres[COLUMNAS]
+    edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True)
 
     if st.button("💾 Guardar Cambios de la Tabla", type="primary"):
         try:
             ws = get_worksheet()
             val_list = [COLUMNAS] + edited_df.astype(str).values.tolist()
-            ws.update(val_list)
+            ws.update(range_name='A1', values=val_list)
             st.success("✅ Hoja de cálculo actualizada correctamente.")
-            st.session_state.df_lideres = edited_df
+            st.cache_resource.clear()
+            st.session_state.df_lideres = cargar_datos()
+            st.rerun()
         except Exception as e:
             st.error(f"Error al guardar la tabla: {e}")
