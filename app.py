@@ -390,7 +390,7 @@ elif menu == "🔍 Consulta Detallada":
                             f"**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n"
                             f"**Redes Sociales:** {valor(row, 'Redes Sociales')}"
                         )
-                   with c3:
+                    with c3:
                         st.markdown("### 📍 Ubicación")
                         st.markdown(
                             f"**Comuna:** {valor(row, 'Comuna')}\n\n"
