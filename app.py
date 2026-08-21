@@ -1,22 +1,29 @@
 import streamlit as st
-import pandas as pd  # O las demás librerías que uses en tu script
+import pandas as pd
+from datetime import datetime
 
-# Configuración de página (debe ser el primer comando 'st')
-st.set_page_config(page_title="Gestión de Líderes", layout="wide")
+# -----------------------------------------------------------------------------
+# 1. CONFIGURACIÓN DE PÁGINA
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Plataforma de Gestión de Líderes",
+    page_icon="📊",
+    layout="wide"
+)
 
-# ==========================================
-# FIX VISUAL DE COLORES Y CONTRASTE
-# ==========================================
+# -----------------------------------------------------------------------------
+# 2. PARCHE DE ESTILOS CSS (REPARACIÓN DE CONTRASTE Y COLORES)
+# -----------------------------------------------------------------------------
 st.markdown(
     """
     <style>
-    /* 1. Fondo general de la aplicación */
+    /* Fondo principal de la app */
     .stApp, [data-testid="stAppViewContainer"] {
         background-color: #0F172A !important;
         color: #F8FAFC !important;
     }
 
-    /* 2. Tarjetas de métricas del Dashboard (st.metric) */
+    /* FIX PARA TARJETAS DE MÉTRICAS (st.metric) EN DASHBOARD */
     div[data-testid="stMetric"], 
     div[data-testid="metric-container"],
     .stMetric {
@@ -43,100 +50,7 @@ st.markdown(
         font-size: 1.8rem !important;
     }
 
-    /* 3. Formularios (st.form) y cajas de edición */
-    div[data-testid="stForm"], .stForm, form {
-        background-color: #1E293B !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-        padding: 24px !important;
-    }
-
-    /* Forzar texto visible en etiquetas y títulos */
-    p, span, label, h1, h2, h3, h4, h5, h6,
-    [data-testid="stForm"] label,
-    [data-testid="stForm"] .stWidgetLabel p {
-        color: #F8FAFC !important;
-        font-weight: 600 !important;
-        opacity: 1 !important;
-    }
-
-    /* Subtítulos dentro de formularios */
-    [data-testid="stSubheader"] *, .stSubheader * {
-        color: #38BDF8 !important;
-        font-weight: 700 !important;
-    }
-
-    /* Campos de entrada */
-    input[type="text"], input[type="number"], textarea, select {
-        background-color: #0F172A !important;
-        color: #FFFFFF !important;
-        border: 1px solid #475569 !important;
-        border-radius: 6px !important;
-    }
-
-    input:focus, textarea:focus {
-        border-color: #38BDF8 !important;
-        outline: none !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# A PARTIR DE AQUÍ CONTINÚA TODO TU CÓDIGO ORIGINAL TAL CUAL LO TENÍAS
-import streamlit as st
-import pandas as pd
-
-# -----------------------------------------------------------------------------
-# 1. CONFIGURACIÓN INICIAL DE PÁGINA
-# -----------------------------------------------------------------------------
-st.set_page_config(
-    page_title="Plataforma de Gestión de Líderes",
-    page_icon="📊",
-    layout="wide"
-)
-
-# -----------------------------------------------------------------------------
-# 2. FIX DEFINITIVO DE ESTILOS CSS GLOBALES
-# Soluciona problemas de visibilidad, tarjetas blancas y texto invisible
-# -----------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    /* Fondo principal de la aplicación */
-    .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #0F172A !important;
-        color: #F8FAFC !important;
-    }
-
-    /* FIX PARA TARJETAS DE MÉTRICAS (st.metric) */
-    div[data-testid="stMetric"], 
-    div[data-testid="metric-container"],
-    .stMetric {
-        background-color: #1E293B !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-        padding: 16px 20px !important;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3) !important;
-    }
-
-    /* Etiqueta / Título de la métrica */
-    div[data-testid="stMetric"] [data-testid="stMetricLabel"] *,
-    div[data-testid="stMetricLabel"] * {
-        color: #38BDF8 !important;
-        font-weight: 700 !important;
-        font-size: 0.95rem !important;
-    }
-
-    /* Valor numérico de la métrica */
-    div[data-testid="stMetric"] [data-testid="stMetricValue"] *,
-    div[data-testid="stMetricValue"] * {
-        color: #FFFFFF !important;
-        font-weight: 800 !important;
-        font-size: 1.8rem !important;
-    }
-
-    /* FIX PARA FORMULARIOS (st.form) Y CONTENEDORES */
+    /* FIX PARA FORMULARIOS (st.form) Y CONTENEDORES EN EDICIÓN */
     div[data-testid="stForm"], .stForm, form {
         background-color: #1E293B !important;
         border: 1px solid #334155 !important;
@@ -153,13 +67,13 @@ st.markdown(
         opacity: 1 !important;
     }
 
-    /* Títulos destacados dentro de formularios */
+    /* Subtítulos dentro del formulario */
     [data-testid="stSubheader"] *, .stSubheader * {
         color: #38BDF8 !important;
         font-weight: 700 !important;
     }
 
-    /* Estilos de inputs, selects y textareas */
+    /* Cajas de texto e inputs */
     input[type="text"], input[type="number"], textarea, select {
         background-color: #0F172A !important;
         color: #FFFFFF !important;
@@ -172,14 +86,14 @@ st.markdown(
         outline: none !important;
     }
 
-    /* Botones de formulario */
+    /* Botón de guardar cambios */
     div[data-testid="stForm"] button[type="submit"] {
         background-color: #2563EB !important;
         color: #FFFFFF !important;
         border: none !important;
         font-weight: bold !important;
         border-radius: 8px !important;
-        padding: 8px 16px !important;
+        padding: 10px 20px !important;
     }
 
     div[data-testid="stForm"] button[type="submit"]:hover {
@@ -191,7 +105,7 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# 3. FUNCIONES DE APOYO Y CARGA DE DATOS
+# 3. FUNCIONES DE APOYO Y DATOS EN SESSION_STATE
 # -----------------------------------------------------------------------------
 def limpiar_valor(val):
     if pd.isna(val):
@@ -207,17 +121,14 @@ def valor(row, col):
         return "" if v == "nan" else v
     return ""
 
-@st.cache_data
-def obtener_datos():
-    # Sustituir por la carga real de tu CSV o Excel
-    # Ejemplo: return pd.read_csv("lideres.csv")
-    datos_demo = {
+def cargar_datos_iniciales():
+    return pd.DataFrame({
         "No. Identificacion": ["15513554", "98765432"],
         "Nombres": ["WILFREDO", "MARIA"],
         "Apellidos": ["USUGA USUGA", "GOMEZ"],
         "No. Telefono": ["3017732219", "3000000000"],
         "Correo Electronico": ["usuga03@gmail.com", "maria@gmail.com"],
-        "Fecha de Cumpleanos": ["1985-05-12", "1990-10-20"],
+        "Fecha de Cumpleanos": ["1985-05-12", "1990-08-25"],
         "Redes Sociales": ["@wilfredo", "@maria"],
         "Dependencia": ["Municipio", "Salud"],
         "Secretaria y/o Dependencia": ["Edunorte", "Gobierno"],
@@ -238,23 +149,28 @@ def obtener_datos():
         "NO ESTA EN EL CENSO": [5, 2],
         "CEDULA ERRONEA": [1, 0],
         "Total No. Amigos": [1600, 800],
-        "URL_PDF": ["https://drive.google.com/file/d/15KcdPPY6rVibYppbYKSkQeXC6CpCZJc/view", ""]
-    }
-    return pd.DataFrame(datos_demo)
+        "URL_PDF": ["https://drive.google.com/file/d/example/view", ""]
+    })
 
-# Guardar en Session State para mantener ediciones
 if "df_lideres" not in st.session_state:
-    st.session_state.df_lideres = obtener_datos()
+    st.session_state.df_lideres = cargar_datos_iniciales()
 
 df_lideres = st.session_state.df_lideres
 
 # -----------------------------------------------------------------------------
-# 4. MENÚ NAVEGACIÓN LATERAL
+# 4. MENÚ DE NAVEGACIÓN COMPLETO ORIGINAL
 # -----------------------------------------------------------------------------
 st.sidebar.title("📌 Menú Principal")
 menu = st.sidebar.radio(
     "Seleccione una opción:",
-    ["📊 Dashboard General", "📋 Listado de Líderes", "✏️ Editar Líder"]
+    [
+        "📊 Dashboard General", 
+        "🔍 Buscar Líder", 
+        "➕ Agregar Líder", 
+        "✏️ Editar Líder", 
+        "🔎 Consulta Avanzada", 
+        "🎂 Cumpleaños"
+    ]
 )
 
 # -----------------------------------------------------------------------------
@@ -262,11 +178,9 @@ menu = st.sidebar.radio(
 # -----------------------------------------------------------------------------
 if menu == "📊 Dashboard General":
     st.title("📊 Dashboard General de Líderes")
-    st.markdown("Visión global de registros, proyecciones y votos.")
-    st.markdown("<br>", unsafe_allow_html=True)
-
+    
     col1, col2, col3, col4 = st.columns(4)
-
+    
     total_registros = len(df_lideres)
     total_amigos = int(pd.to_numeric(df_lideres["Total No. Amigos"], errors='coerce').sum() or 0)
     proyeccion_total = int(pd.to_numeric(df_lideres["PROYECCION"], errors='coerce').sum() or 0)
@@ -282,17 +196,61 @@ if menu == "📊 Dashboard General":
         st.metric(label="Total Votantes", value=f"{total_votantes:,}")
 
     st.markdown("---")
+    st.subheader("📋 Consolidado General")
     st.dataframe(df_lideres, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# 6. MÓDULO 2: LISTADO DE LÍDERES
+# 6. MÓDULO 2: BUSCAR LÍDER
 # -----------------------------------------------------------------------------
-elif menu == "📋 Listado de Líderes":
-    st.title("📋 Listado Consolidado de Líderes")
-    st.dataframe(df_lideres, use_container_width=True, height=500)
+elif menu == "🔍 Buscar Líder":
+    st.title("🔍 Buscar Información de Líder")
+    cedula_buscar = st.text_input("Ingrese la Cédula del Líder:")
+    
+    if cedula_buscar.strip():
+        term = cedula_buscar.strip()
+        resultado = df_lideres[df_lideres["No. Identificacion"].map(limpiar_valor) == term]
+        
+        if not resultado.empty:
+            st.success("Líder encontrado.")
+            st.dataframe(resultado, use_container_width=True)
+        else:
+            st.warning("No se encontró ningún registro con esa cédula.")
 
 # -----------------------------------------------------------------------------
-# 7. MÓDULO 3: EDITAR LÍDER POR CÉDULA
+# 7. MÓDULO 3: AGREGAR LÍDER
+# -----------------------------------------------------------------------------
+elif menu == "➕ Agregar Líder":
+    st.title("➕ Agregar Nuevo Líder")
+    
+    with st.form("form_agregar"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            cedula = st.text_input("No. Identificación")
+            nombres = st.text_input("Nombres")
+            apellidos = st.text_input("Apellidos")
+            telefono = st.text_input("No. Teléfono")
+            correo = st.text_input("Correo Electrónico")
+        with col_b:
+            dependencia = st.text_input("Dependencia")
+            cargo = st.text_input("Cargo Actual")
+            comuna = st.text_input("Comuna")
+            barrio = st.text_input("Barrio")
+            proyeccion = st.number_input("Proyección", min_value=0, step=1)
+            
+        btn_crear = st.form_submit_button("➕ Registrar Líder")
+        
+        if btn_crear:
+            nuevo_registro = {
+                "No. Identificacion": cedula, "Nombres": nombres, "Apellidos": apellidos,
+                "No. Telefono": telefono, "Correo Electronico": correo, "Dependencia": dependencia,
+                "Cargo actual": cargo, "Comuna": comuna, "Barrio": barrio, "PROYECCION": proyeccion
+            }
+            st.session_state.df_lideres = pd.concat([st.session_state.df_lideres, pd.DataFrame([nuevo_registro])], ignore_index=True)
+            st.success("✅ Líder registrado correctamente.")
+            st.rerun()
+
+# -----------------------------------------------------------------------------
+# 8. MÓDULO 4: EDITAR LÍDER
 # -----------------------------------------------------------------------------
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
@@ -396,3 +354,49 @@ elif menu == "✏️ Editar Líder":
                         st.rerun()
             else:
                 st.info("No se encontró ningún registro con esa cédula.")
+
+# -----------------------------------------------------------------------------
+# 9. MÓDULO 5: CONSULTA AVANZADA
+# -----------------------------------------------------------------------------
+elif menu == "🔎 Consulta Avanzada":
+    st.title("🔎 Consulta Avanzada de Registros")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        comuna_filtro = st.text_input("Filtrar por Comuna:")
+    with col_f2:
+        barrio_filtro = st.text_input("Filtrar por Barrio:")
+
+    df_filtrado = df_lideres.copy()
+    if comuna_filtro.strip():
+        df_filtrado = df_filtrado[df_filtrado["Comuna"].astype(str).str.contains(comuna_filtro.strip(), case=False, na=False)]
+    if barrio_filtro.strip():
+        df_filtrado = df_filtrado[df_filtrado["Barrio"].astype(str).str.contains(barrio_filtro.strip(), case=False, na=False)]
+
+    st.dataframe(df_filtrado, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 10. MÓDULO 6: CUMPLEAÑOS
+# -----------------------------------------------------------------------------
+elif menu == "🎂 Cumpleaños":
+    st.title("🎂 Consulta de Cumpleaños del Mes")
+    
+    meses = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
+    mes_sel = st.selectbox("Seleccione el mes a consultar:", list(meses.values()))
+    
+    # Obtener el número de mes seleccionado
+    num_mes = [k for k, v in meses.items() if v == mes_sel][0]
+    
+    df_cumple = df_lideres.copy()
+    df_cumple["Fecha_dt"] = pd.to_datetime(df_cumple["Fecha de Cumpleanos"], errors='coerce')
+    
+    cumpleaneros = df_cumple[df_cumple["Fecha_dt"].dt.month == num_mes]
+    
+    if not cumpleaneros.empty:
+        st.success(f"Líderes que cumplen años en {mes_sel}:")
+        st.dataframe(cumpleaneros[["Nombres", "Apellidos", "No. Telefono", "Fecha de Cumpleanos", "Barrio"]], use_container_width=True)
+    else:
+        st.info(f"No hay registrados cumpleaños para el mes de {mes_sel}.")
