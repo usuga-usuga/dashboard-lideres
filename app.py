@@ -13,7 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ==========================================
-# CONFIGURACIÓN GENERAL Y ESTILOS
+# CONFIGURACIÓN GENERAL Y ESTILOS DE LA APP
 # ==========================================
 st.set_page_config(
     page_title="Gestión de Líderes y Contactos",
@@ -35,12 +35,12 @@ st.markdown("""
         border: 1px solid #e9ecef; 
     }
     
-    /* FIX DE VISIBILIDAD DE FORMULARIO Y TEXTOS */
+    /* FIX DE VISIBILIDAD DE FORMULARIO Y TEXTOS EN MODO OSCURO/CLARO */
     div[data-testid="stForm"] { 
         border: 1px solid #374151; 
         padding: 20px; 
         border-radius: 10px; 
-        background-color: #1f2937 !important; /* Fondo oscuro elegante */
+        background-color: #1f2937 !important; 
     }
     
     /* Forzar visibilidad del texto en las etiquetas (Labels) */
@@ -59,6 +59,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# ESTRUCTURA EXACTA DE COLUMNAS DE LA HOJA
+# ==========================================
 COLUMNAS = [
     "No. Identificacion", "Nombres", "Apellidos", "No. Telefono", "Dependencia",
     "Secretaria y/o Dependencia", "Apoyo", "Profesion", "Cargo actual", "Correo Electronico",
@@ -123,7 +126,7 @@ def get_worksheet():
     return client.open(sheet_name).sheet1
 
 # ==========================================
-# LIMPIEZA Y BARRIDO DE DATOS
+# LIMPIEZA Y BARRIDO INTEGRAL DE DATOS
 # ==========================================
 def limpiar_valor(val):
     if pd.isna(val) or val is None:
@@ -158,7 +161,7 @@ def preparar_df(raw_data):
         fila = [r[i] if i < len(r) else "" for i in range(len(COLUMNAS))]
         cedula_val = limpiar_valor(fila[0])
         if cedula_val:
-            fila.append(real_idx) # Guarda la fila real exacta en Google Sheets
+            fila.append(real_idx)
             data.append(fila)
 
     df = pd.DataFrame(data, columns=COLUMNAS + ["_sheet_row"])
@@ -289,7 +292,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# MÓDULOS
+# MÓDULOS DE LA APLICACIÓN
 # ==========================================
 if menu == "📊 Dashboard General":
     st.title("📊 Dashboard General de Líderes")
@@ -477,9 +480,15 @@ elif menu == "✏️ Editar por Cédula":
         if match.empty:
             st.warning("No se encontró ningún registro con esta cédula.")
         else:
+            row_idx = match.index[0]
             row_data = match.iloc[0]
-            sheet_row = int(row_data["_sheet_row"]) # Utiliza la fila real garantizada
             
+            # Control de seguridad anti KeyError
+            if "_sheet_row" in row_data:
+                sheet_row = int(row_data["_sheet_row"])
+            else:
+                sheet_row = row_idx + 2
+
             with st.form("form_editar_lider"):
                 st.subheader(f"Editando: {row_data['Nombres']} {row_data['Apellidos']}")
                 c1, c2 = st.columns(2)
@@ -524,7 +533,6 @@ elif menu == "📋 Editor de Tabla Directo":
     st.title("📋 Editor de Tabla en Tiempo Real")
     st.info("Modifique los campos directamente en la tabla y presione 'Guardar Todo' para sincronizar con Google Sheets.")
 
-    # Excluir la columna interna _sheet_row en la visualización
     df_display = df_lideres[COLUMNAS]
     edited_df = st.data_editor(df_display, num_rows="dynamic", use_container_width=True)
 
