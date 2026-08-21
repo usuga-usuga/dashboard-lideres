@@ -495,50 +495,49 @@ elif menu == "🎂 Cumpleaños Próximos":
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
     
-    # CSS para solucionar el problema de visibilidad en los títulos/etiquetas del formulario
+    # CSS definitivo para eliminar el contenedor blanco y forzar alto contraste
     st.markdown(
         """
         <style>
-        /* Contenedor del formulario con fondo oscuro para uniformidad */
-        div[data-testid="stForm"] {
-            background-color: #1A1D24 !important;
-            border: 1px solid #333A48 !important;
-            border-radius: 12px !important;
-            padding: 24px !important;
+        /* 1. Eliminar el fondo blanco forzado del formulario y hacerlo oscuro */
+        div[data-testid="stForm"], 
+        div[data-testid="stForm"] > div,
+        .stForm {
+            background-color: #111827 !important;
+            border: 1px solid #374151 !important;
+            border-radius: 10px !important;
+            padding: 20px !important;
         }
 
-        /* Forzar que los títulos de cada campo (Labels) sean visibles siempre en BLANCO */
+        /* 2. Forzar que TODOS los nombres de los campos (labels) sean NEGROS o BLANCOS VISIBLES */
         div[data-testid="stForm"] label,
         div[data-testid="stForm"] label p,
         div[data-testid="stForm"] label span,
-        div[data-testid="stForm"] .stWidgetLabel p {
-            color: #FFFFFF !important;
-            font-size: 0.95rem !important;
-            font-weight: 600 !important;
-            opacity: 1 !important;
-        }
-
-        /* Títulos de sección dentro del formulario */
-        div[data-testid="stForm"] h4, 
+        div[data-testid="stForm"] .stWidgetLabel,
+        div[data-testid="stForm"] .stWidgetLabel p,
+        div[data-testid="stForm"] h3,
+        div[data-testid="stForm"] h4,
         div[data-testid="stForm"] strong {
-            color: #38BDF8 !important;
-            font-size: 1.1rem !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
 
-        /* Estilo de los campos de texto e input */
+        /* 3. Estilo de los campos de entrada */
         div[data-testid="stForm"] input, 
         div[data-testid="stForm"] textarea {
-            background-color: #0F172A !important;
-            color: #FFFFFF !important;
-            border: 1px solid #334155 !important;
+            background-color: #1F2937 !important;
+            color: #F9FAFB !important;
+            border: 1px solid #4B5563 !important;
             border-radius: 6px !important;
         }
 
-        /* Evitar que hover o focus cambie el color del texto a transparente o blanco sobre blanco */
-        div[data-testid="stForm"] input:focus, 
-        div[data-testid="stForm"] textarea:focus {
-            border-color: #38BDF8 !important;
-            color: #FFFFFF !important;
+        /* 4. Color del título "Editando..." */
+        .stSubheader, div[data-testid="stSubheader"] {
+            color: #38BDF8 !important;
+            font-weight: bold !important;
         }
         </style>
         """,
