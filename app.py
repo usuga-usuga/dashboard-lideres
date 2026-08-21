@@ -28,14 +28,23 @@ st.markdown("""
         padding-top: 1.5rem; 
         padding-bottom: 2rem; 
     }
-    .stMetric { 
-        background-color: #f8f9fa; 
-        padding: 12px; 
-        border-radius: 8px; 
-        border: 1px solid #e9ecef; 
+    
+    /* FIX PARA TARJETAS DE MÉTRICAS (st.metric) */
+    div[data-testid="stMetric"] {
+        background-color: #1f2937 !important;
+        border: 1px solid #374151 !important;
+        padding: 15px !important;
+        border-radius: 10px !important;
     }
     
-    /* FIX DE VISIBILIDAD DE FORMULARIO Y TEXTOS EN MODO OSCURO/CLARO */
+    /* Textos del título y valores dentro de las métricas */
+    div[data-testid="stMetric"] label,
+    div[data-testid="stMetricLabel"],
+    div[data-testid="stMetricValue"] {
+        color: #ffffff !important;
+    }
+    
+    /* FIX DE VISIBILIDAD DE FORMULARIOS Y CAMPOS DE TEXTO */
     div[data-testid="stForm"] { 
         border: 1px solid #374151; 
         padding: 20px; 
@@ -43,14 +52,12 @@ st.markdown("""
         background-color: #1f2937 !important; 
     }
     
-    /* Forzar visibilidad del texto en las etiquetas (Labels) */
     div[data-testid="stForm"] label, 
     div[data-testid="stForm"] .stMarkdown p { 
         color: #f3f4f6 !important; 
         font-weight: 600 !important; 
     }
     
-    /* Ajuste de contraste para los campos de entrada */
     div[data-testid="stForm"] input { 
         background-color: #111827 !important; 
         color: #ffffff !important; 
