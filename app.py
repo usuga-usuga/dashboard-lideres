@@ -495,39 +495,50 @@ elif menu == "🎂 Cumpleaños Próximos":
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
     
-    # Inyección de CSS agresiva para forzar legibilidad y eliminar fondos blancos no deseados
+    # CSS para solucionar el problema de visibilidad en los títulos/etiquetas del formulario
     st.markdown(
         """
         <style>
-        /* Forzar que la caja contenedora del formulario sea oscura */
-        div[data-testid="stForm"], .stForm {
-            background-color: #161B22 !important;
-            border: 1px solid #30363D !important;
-            border-radius: 10px !important;
-            padding: 20px !important;
+        /* Contenedor del formulario con fondo oscuro para uniformidad */
+        div[data-testid="stForm"] {
+            background-color: #1A1D24 !important;
+            border: 1px solid #333A48 !important;
+            border-radius: 12px !important;
+            padding: 24px !important;
         }
 
-        /* Forzar que TODOS los textos, etiquetas y títulos del formulario sean oscuros/negros o blanco brillante */
+        /* Forzar que los títulos de cada campo (Labels) sean visibles siempre en BLANCO */
         div[data-testid="stForm"] label,
         div[data-testid="stForm"] label p,
         div[data-testid="stForm"] label span,
-        div[data-testid="stForm"] h1,
-        div[data-testid="stForm"] h2,
-        div[data-testid="stForm"] h3,
-        div[data-testid="stForm"] h4,
-        div[data-testid="stForm"] strong,
-        div[data-testid="stForm"] p {
+        div[data-testid="stForm"] .stWidgetLabel p {
             color: #FFFFFF !important;
+            font-size: 0.95rem !important;
             font-weight: 600 !important;
             opacity: 1 !important;
         }
 
-        /* Estilo de las cajas de texto */
+        /* Títulos de sección dentro del formulario */
+        div[data-testid="stForm"] h4, 
+        div[data-testid="stForm"] strong {
+            color: #38BDF8 !important;
+            font-size: 1.1rem !important;
+        }
+
+        /* Estilo de los campos de texto e input */
         div[data-testid="stForm"] input, 
         div[data-testid="stForm"] textarea {
-            background-color: #0D1117 !important;
+            background-color: #0F172A !important;
             color: #FFFFFF !important;
-            border: 1px solid #484F58 !important;
+            border: 1px solid #334155 !important;
+            border-radius: 6px !important;
+        }
+
+        /* Evitar que hover o focus cambie el color del texto a transparente o blanco sobre blanco */
+        div[data-testid="stForm"] input:focus, 
+        div[data-testid="stForm"] textarea:focus {
+            border-color: #38BDF8 !important;
+            color: #FFFFFF !important;
         }
         </style>
         """,
@@ -633,7 +644,6 @@ elif menu == "✏️ Editar Líder":
                         st.rerun()
             else:
                 st.info("No se encontró ningún registro con esa cédula.")
-
 # ==========================================
 # MÓDULO 5: EDITAR POR CÉDULA
 # ==========================================
