@@ -494,30 +494,45 @@ elif menu == "🎂 Cumpleaños Próximos":
 # ==========================================
 elif menu == "✏️ Editar Líder":
     st.title("✏️ Editar Información de Líder")
+    
+    # Inyección CSS para corregir contraste del formulario y etiquetas
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stForm"] {
+            background-color: #0E1117 !important;
+            border: 1px solid #30363D !important;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        div[data-testid="stForm"] label, 
+        div[data-testid="stForm"] label p,
+        div[data-testid="stForm"] h4,
+        div[data-testid="stForm"] strong {
+            color: #F0F6FC !important;
+            font-weight: 600 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     if df_lideres.empty:
         st.warning("No hay datos disponibles para editar.")
     else:
-        # Selección de líder
-        lista_opciones = []
-        for idx, r in df_lideres.iterrows():
-            nom = f"{valor(r, 'Nombres')} {valor(r, 'Apellidos')}".strip()
-            ced = valor(r, "No. Identificacion")
-            lista_opciones.append(f"{ced} - {nom}")
+        busqueda_ced = st.text_input("Ingrese la Cédula a Editar:")
 
-        seleccion = st.selectbox("Seleccione el líder a editar:", lista_opciones)
-
-        if seleccion:
-            ced_sel = seleccion.split(" - ")[0].strip()
-            idx_match = df_lideres[df_lideres["No. Identificacion"].map(limpiar_valor) == ced_sel].index
+        if busqueda_ced.strip():
+            term = busqueda_ced.strip()
+            idx_match = df_lideres[df_lideres["No. Identificacion"].map(limpiar_valor) == term].index
 
             if not idx_match.empty:
                 idx_row = idx_match[0]
                 row = df_lideres.loc[idx_row]
 
-                st.subheader(f"Editing: {valor(row, 'Nombres')} {valor(row, 'Apellidos')}")
-                
+                st.subheader(f"Editando: {valor(row, 'Nombres')} {valor(row, 'Apellidos')}")
+
                 with st.form(key=f"form_edit_{idx_row}"):
-                    # Seccion 1: Datos Principales
                     st.markdown("#### 📌 Datos Personales y Contacto")
                     c1, c2 = st.columns(2)
                     with c1:
@@ -525,7 +540,7 @@ elif menu == "✏️ Editar Líder":
                         new_apellidos = st.text_input("Apellidos", value=valor(row, "Apellidos"))
                         new_tel = st.text_input("Teléfono", value=valor(row, "No. Telefono"))
                         new_correo = st.text_input("Correo", value=valor(row, "Correo Electronico"))
-                        new_cumple = st.text_input("Fecha Cumpleaños (AAAA-MM-DD)", value=valor(row, "Fecha de Cumpleanos"))
+                        new_cumple = st.text_input("Fecha Cumpleaños", value=valor(row, "Fecha de Cumpleanos"))
                         new_redes = st.text_input("Redes Sociales", value=valor(row, "Redes Sociales"))
                     with c2:
                         new_dep = st.text_input("Dependencia", value=valor(row, "Dependencia"))
@@ -537,11 +552,10 @@ elif menu == "✏️ Editar Líder":
                         new_barrio = st.text_input("Barrio", value=valor(row, "Barrio"))
 
                     st.markdown("---")
-                    
-                    # Seccion 2: Votantes, Proyección y Registros
+
                     st.markdown("#### 🗳️ Votantes, Proyección y Planillas")
                     c3, c4, c5 = st.columns(3)
-                    
+
                     with c3:
                         st.markdown("**🗳️ Votantes**")
                         new_bello = st.number_input("Bello", value=int(pd.to_numeric(valor(row, "Bello"), errors='coerce') or 0), step=1)
@@ -569,7 +583,6 @@ elif menu == "✏️ Editar Líder":
                     btn_guardar = st.form_submit_button("💾 Guardar Cambios")
 
                     if btn_guardar:
-                        # Asignar los nuevos valores a la fila
                         df_lideres.loc[idx_row, "Nombres"] = new_nombres
                         df_lideres.loc[idx_row, "Apellidos"] = new_apellidos
                         df_lideres.loc[idx_row, "No. Telefono"] = new_tel
@@ -583,7 +596,7 @@ elif menu == "✏️ Editar Líder":
                         df_lideres.loc[idx_row, "Apoyo"] = new_apoyo
                         df_lideres.loc[idx_row, "Comuna"] = new_comuna
                         df_lideres.loc[idx_row, "Barrio"] = new_barrio
-                        
+
                         df_lideres.loc[idx_row, "Bello"] = new_bello
                         df_lideres.loc[idx_row, "Otros"] = new_otros
                         df_lideres.loc[idx_row, "Total"] = new_total
@@ -591,7 +604,7 @@ elif menu == "✏️ Editar Líder":
                         df_lideres.loc[idx_row, "REGISTROS"] = new_registros
                         df_lideres.loc[idx_row, "MUNICIPIO PROYECTADO"] = new_mun_proy
                         df_lideres.loc[idx_row, "NOTAS"] = new_notas
-                        
+
                         df_lideres.loc[idx_row, "MUNICIPIO DE BELLO"] = new_mun_bello
                         df_lideres.loc[idx_row, "OTROS MUNICIPIOS - DEPTOS"] = new_otros_mun
                         df_lideres.loc[idx_row, "NO ESTA EN EL CENSO"] = new_no_censo
@@ -601,6 +614,8 @@ elif menu == "✏️ Editar Líder":
 
                         st.success("✅ Cambios guardados exitosamente.")
                         st.rerun()
+            else:
+                st.info("No se encontró ningún registro con esa cédula.")
 
 # ==========================================
 # MÓDULO 5: EDITAR POR CÉDULA
