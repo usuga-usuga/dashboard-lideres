@@ -57,7 +57,8 @@ st.markdown("""
         font-weight: 600 !important; 
     }
     
-    div[data-testid="stForm"] input { 
+    div[data-testid="stForm"] input,
+    div[data-testid="stForm"] textarea { 
         background-color: #111827 !important; 
         color: #ffffff !important; 
         border: 1px solid #4b5563 !important; 
@@ -352,45 +353,146 @@ elif menu == "🔍 Consulta Detallada":
                     nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip()
                     cedula = valor(row, "No. Identificacion")
                     dependencia = valor(row, "Dependencia")
+                    sheet_row = int(row["_sheet_row"]) if "_sheet_row" in row else (idx + 2)
+                    edit_state_key = f"modo_edicion_{sheet_row}_{idx}"
 
                     with st.container(border=True):
-                        h1, h2 = st.columns([4, 1.2])
+                        h1, h2, h3 = st.columns([3.5, 1.2, 1.3])
                         with h1:
                             st.markdown(f"## **{nombre.upper() or 'NOMBRE NO REGISTRADO'}**")
                             st.markdown(f"**Cédula / Identificación:** {cedula} | **Dependencia:** {dependencia}")
                         with h2:
+                            en_edicion = st.session_state.get(edit_state_key, False)
+                            btn_label = "❌ Cancelar Edición" if en_edicion else "✏️ Editar Ficha"
+                            if st.button(btn_label, key=f"toggle_edit_{sheet_row}_{idx}", use_container_width=True):
+                                st.session_state[edit_state_key] = not en_edicion
+                                st.rerun()
+                        with h3:
                             pdf_file = generar_pdf_ficha(row)
                             safe_id = re.sub(r"[^A-Za-z0-9_-]+", "_", cedula)
-                            st.download_button("📄 Descargar Ficha PDF", data=pdf_file, file_name=f"Ficha_{safe_id or idx}.pdf", mime="application/pdf", key=f"pdf_{idx}")
+                            st.download_button("📄 Descargar PDF", data=pdf_file, file_name=f"Ficha_{safe_id or idx}.pdf", mime="application/pdf", key=f"pdf_{idx}", use_container_width=True)
 
                         st.markdown("---")
-                        col_lab, col_con, col_ubi = st.columns(3)
-                        with col_lab:
-                            st.markdown("### 📌 Datos Principales")
-                            st.markdown(f"**Dependencia:** {valor(row, 'Dependencia')}\n\n**Secretaría:** {valor(row, 'Secretaria y/o Dependencia')}\n\n**Cargo actual:** {valor(row, 'Cargo actual')}\n\n**Profesión:** {valor(row, 'Profesion')}\n\n**Equipo Apoyo:** {valor(row, 'Apoyo')}")
-                        with col_con:
-                            st.markdown("### 📞 Contacto")
-                            st.markdown(f"**Teléfono:** {valor(row, 'No. Telefono')}\n\n**Correo:** {valor(row, 'Correo Electronico')}\n\n**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n**Redes Sociales:** {valor(row, 'Redes Sociales')}")
-                        with col_ubi:
-                            st.markdown("### 📍 Ubicación")
-                            st.markdown(f"**Comuna:** {valor(row, 'Comuna')}\n\n**Barrio:** {valor(row, 'Barrio')}")
 
-                        st.markdown("---")
-                        col_vot, col_proy, col_plan = st.columns(3)
-                        with col_vot:
-                            st.markdown("### 🗳️ Votantes")
-                            st.markdown(f"**Bello:** {valor(row, 'Bello', '0')}\n\n**Otros:** {valor(row, 'Otros', '0')}\n\n**Total:** {valor(row, 'Total', '0')}")
-                        with col_proy:
-                            st.markdown("### 📈 Proyección y Notas")
-                            st.markdown(f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n**Registros:** {valor(row, 'REGISTROS', '0')}\n\n**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n**Notas:** {valor(row, 'NOTAS', 'Sin notas')}")
-                        with col_plan:
-                            st.markdown("### 📋 Planillas y Registros")
-                            st.markdown(f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n**Otros Municipios:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n**No en Censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}")
+                        # MODO EDICIÓN DIRECTA EN LA FICHA
+                        if st.session_state.get(edit_state_key, False):
+                            with st.form(key=f"form_consulta_edit_{sheet_row}_{idx}"):
+                                st.info(f"✏️ Editando registro en fila {sheet_row} de Google Sheets. Modifica los campos necesarios y pulsa Guardar.")
+                                
+                                st.markdown("#### 📌 Datos Principales y Contacto")
+                                ec1, ec2, ec3 = st.columns(3)
+                                with ec1:
+                                    ed_cedula = st.text_input("No. Identificación *", value=valor(row, "No. Identificacion", ""))
+                                    ed_nombres = st.text_input("Nombres *", value=valor(row, "Nombres", ""))
+                                    ed_apellidos = st.text_input("Apellidos", value=valor(row, "Apellidos", ""))
+                                    ed_telefono = st.text_input("Teléfono", value=valor(row, "No. Telefono", ""))
+                                    ed_correo = st.text_input("Correo Electrónico", value=valor(row, "Correo Electronico", ""))
+                                with ec2:
+                                    ed_dependencia = st.text_input("Dependencia", value=valor(row, "Dependencia", ""))
+                                    ed_secretaria = st.text_input("Secretaría y/o Dependencia", value=valor(row, "Secretaria y/o Dependencia", ""))
+                                    ed_cargo = st.text_input("Cargo actual", value=valor(row, "Cargo actual", ""))
+                                    ed_profesion = st.text_input("Profesión", value=valor(row, "Profesion", ""))
+                                    ed_apoyo = st.text_input("Equipo de Apoyo", value=valor(row, "Apoyo", ""))
+                                with ec3:
+                                    ed_cumple = st.text_input("Fecha de Cumpleaños", value=valor(row, "Fecha de Cumpleanos", ""))
+                                    ed_redes = st.text_input("Redes Sociales", value=valor(row, "Redes Sociales", ""))
+                                    ed_comuna = st.text_input("Comuna", value=valor(row, "Comuna", ""))
+                                    ed_barrio = st.text_input("Barrio", value=valor(row, "Barrio", ""))
+                                    ed_mun_proy = st.text_input("Municipio Proyectado", value=valor(row, "MUNICIPIO PROYECTADO", ""))
 
-                        url = valor(row, "URL_PDF", "")
-                        if url.startswith(("http://", "https://")):
+                                st.markdown("#### 📊 Votantes, Proyección y Planillas")
+                                em1, em2, em3 = st.columns(3)
+                                with em1:
+                                    ed_bello = st.number_input("Votos Bello", value=int(row.get("Bello", 0)), step=1)
+                                    ed_otros = st.number_input("Votos Otros", value=int(row.get("Otros", 0)), step=1)
+                                    ed_total = st.number_input("Total Votos", value=int(row.get("Total", 0)), step=1)
+                                    ed_proyeccion = st.number_input("Proyección", value=int(row.get("PROYECCION", 0)), step=1)
+                                with em2:
+                                    ed_registros = st.number_input("Registros", value=int(row.get("REGISTROS", 0)), step=1)
+                                    ed_mun_bello = st.number_input("Municipio de Bello (Censo)", value=int(row.get("MUNICIPIO DE BELLO", 0)), step=1)
+                                    ed_otros_mun = st.number_input("Otros Municipios - Deptos", value=int(row.get("OTROS MUNICIPIOS - DEPTOS", 0)), step=1)
+                                    ed_no_censo = st.number_input("No está en el censo", value=int(row.get("NO ESTA EN EL CENSO", 0)), step=1)
+                                with em3:
+                                    ed_ced_err = st.number_input("Cédula Errónea", value=int(row.get("CEDULA ERRONEA", 0)), step=1)
+                                    ed_total_amigos = st.number_input("Total No. Amigos", value=int(row.get("Total No. Amigos", 0)), step=1)
+                                    ed_url_pdf = st.text_input("URL PDF Planilla", value=valor(row, "URL_PDF", ""))
+
+                                ed_notas = st.text_area("Notas Adicionales", value=valor(row, "NOTAS", ""))
+
+                                guardar_edicion = st.form_submit_button("💾 Guardar Cambios en Google Sheets", type="primary", use_container_width=True)
+                                if guardar_edicion:
+                                    if not ed_cedula.strip() or not ed_nombres.strip():
+                                        st.error("⚠️ La Cédula y los Nombres son obligatorios.")
+                                    else:
+                                        fila_actualizada = [
+                                            ed_cedula.strip(),
+                                            ed_nombres.strip(),
+                                            ed_apellidos.strip(),
+                                            ed_telefono.strip(),
+                                            ed_dependencia.strip(),
+                                            ed_secretaria.strip(),
+                                            ed_apoyo.strip(),
+                                            ed_profesion.strip(),
+                                            ed_cargo.strip(),
+                                            ed_correo.strip(),
+                                            ed_redes.strip(),
+                                            ed_cumple.strip(),
+                                            ed_comuna.strip(),
+                                            ed_barrio.strip(),
+                                            int(ed_bello),
+                                            int(ed_otros),
+                                            int(ed_total),
+                                            int(ed_proyeccion),
+                                            int(ed_registros),
+                                            ed_mun_proy.strip(),
+                                            ed_notas.strip(),
+                                            int(ed_mun_bello),
+                                            int(ed_otros_mun),
+                                            int(ed_no_censo),
+                                            int(ed_ced_err),
+                                            int(ed_total_amigos),
+                                            ed_url_pdf.strip()
+                                        ]
+                                        try:
+                                            ws = get_worksheet()
+                                            ws.update(range_name=f"A{sheet_row}:AA{sheet_row}", values=[fila_actualizada])
+                                            st.session_state[edit_state_key] = False
+                                            st.cache_resource.clear()
+                                            st.session_state.df_lideres = cargar_datos()
+                                            st.success("✅ ¡Cambios grabados correctamente en Google Sheets!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            st.error(f"❌ Error al grabar los cambios en Google Sheets: {e}")
+
+                        # MODO LECTURA NORMAL DE LA FICHA
+                        else:
+                            col_lab, col_con, col_ubi = st.columns(3)
+                            with col_lab:
+                                st.markdown("### 📌 Datos Principales")
+                                st.markdown(f"**Dependencia:** {valor(row, 'Dependencia')}\n\n**Secretaría:** {valor(row, 'Secretaria y/o Dependencia')}\n\n**Cargo actual:** {valor(row, 'Cargo actual')}\n\n**Profesión:** {valor(row, 'Profesion')}\n\n**Equipo Apoyo:** {valor(row, 'Apoyo')}")
+                            with col_con:
+                                st.markdown("### 📞 Contacto")
+                                st.markdown(f"**Teléfono:** {valor(row, 'No. Telefono')}\n\n**Correo:** {valor(row, 'Correo Electronico')}\n\n**Cumpleaños:** {valor(row, 'Fecha de Cumpleanos')}\n\n**Redes Sociales:** {valor(row, 'Redes Sociales')}")
+                            with col_ubi:
+                                st.markdown("### 📍 Ubicación")
+                                st.markdown(f"**Comuna:** {valor(row, 'Comuna')}\n\n**Barrio:** {valor(row, 'Barrio')}")
+
                             st.markdown("---")
-                            st.link_button("🔗 Abrir PDF Planilla", url)
+                            col_vot, col_proy, col_plan = st.columns(3)
+                            with col_vot:
+                                st.markdown("### 🗳️ Votantes")
+                                st.markdown(f"**Bello:** {valor(row, 'Bello', '0')}\n\n**Otros:** {valor(row, 'Otros', '0')}\n\n**Total:** {valor(row, 'Total', '0')}")
+                            with col_proy:
+                                st.markdown("### 📈 Proyección y Notas")
+                                st.markdown(f"**Proyección:** {valor(row, 'PROYECCION', '0')}\n\n**Registros:** {valor(row, 'REGISTROS', '0')}\n\n**Municipio Proyectado:** {valor(row, 'MUNICIPIO PROYECTADO')}\n\n**Notas:** {valor(row, 'NOTAS', 'Sin notas')}")
+                            with col_plan:
+                                st.markdown("### 📋 Planillas y Registros")
+                                st.markdown(f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n**Otros Municipios:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n**No en Censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}")
+
+                            url = valor(row, "URL_PDF", "")
+                            if url.startswith(("http://", "https://")):
+                                st.markdown("---")
+                                st.link_button("🔗 Abrir PDF Planilla", url)
             else:
                 st.info("No se encontraron registros que coincidan con la búsqueda.")
 
