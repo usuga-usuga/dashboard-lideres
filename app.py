@@ -273,6 +273,19 @@ def generar_pdf_ficha(row):
     return buffer
 
 # ==========================================
+# EXPORTADORES EDITABLES (EXCEL / CSV)
+# ==========================================
+def generar_excel_bytes(df_export):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_export[COLUMNAS].to_excel(writer, index=False, sheet_name="Reporte_Lideres")
+    output.seek(0)
+    return output
+
+def generar_csv_bytes(df_export):
+    return df_export[COLUMNAS].to_csv(index=False).encode("utf-8-sig")
+
+# ==========================================
 # MENÚ LATERAL Y NAVEGACIÓN
 # ==========================================
 with st.sidebar:
@@ -369,7 +382,30 @@ elif menu == "🔍 Consulta Detallada":
 
         if busqueda.strip() or filtro_pdf != "Todos los registros":
             if not resultado.empty:
-                st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
+                top_msg, exp_xls, exp_csv = st.columns([3.2, 1.4, 1.4])
+                with top_msg:
+                    st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
+                with exp_xls:
+                    try:
+                        excel_bytes = generar_excel_bytes(resultado)
+                        st.download_button(
+                            "📥 Exportar Excel (.xlsx)",
+                            data=excel_bytes,
+                            file_name="Reporte_Consulta_Detallada.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    except Exception as e:
+                        st.error(f"Error Excel: {e}")
+                with exp_csv:
+                    st.download_button(
+                        "📄 Exportar CSV (.csv)",
+                        data=generar_csv_bytes(resultado),
+                        file_name="Reporte_Consulta_Detallada.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+
                 for idx, row in resultado.iterrows():
                     nombre = f"{valor(row,'Nombres','')} {valor(row,'Apellidos','')}".strip()
                     cedula = valor(row, "No. Identificacion")
