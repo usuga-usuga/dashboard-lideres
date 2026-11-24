@@ -331,22 +331,43 @@ elif menu == "🔍 Consulta Detallada":
     if df_lideres.empty:
         st.warning("No hay datos disponibles.")
     else:
+        filtro_pdf = st.radio(
+            "Estado de Planilla PDF:",
+            ["Todos los registros", "❌ Sin PDF Planilla", "✅ Con PDF Planilla"],
+            horizontal=True
+        )
         criterio = st.radio("Buscar por:", ["Todos los campos", "Cédula / Identificación", "Nombre / Apellido"], horizontal=True)
-        busqueda = st.text_input("Ingrese término de búsqueda:")
-        
+        busqueda = st.text_input("Ingrese término de búsqueda (opcional si filtra por Sin PDF Planilla):")
+
+        def tiene_pdf_valido(val):
+            v = limpiar_valor(val)
+            return v.startswith(("http://", "https://"))
+
+        mask_pdf = df_lideres["URL_PDF"].apply(tiene_pdf_valido)
+        if filtro_pdf == "❌ Sin PDF Planilla":
+            base_df = df_lideres.loc[~mask_pdf]
+        elif filtro_pdf == "✅ Con PDF Planilla":
+            base_df = df_lideres.loc[mask_pdf]
+        else:
+            base_df = df_lideres
+
         if busqueda.strip():
             term = busqueda.strip()
             if criterio == "Cédula / Identificación":
-                mask = df_lideres["No. Identificacion"].map(limpiar_valor).str.contains(re.escape(term), case=False, na=False)
+                mask_busq = base_df["No. Identificacion"].map(limpiar_valor).str.contains(re.escape(term), case=False, na=False)
             elif criterio == "Nombre / Apellido":
-                a = df_lideres["Nombres"].map(limpiar_valor)
-                b = df_lideres["Apellidos"].map(limpiar_valor)
-                mask = a.str.contains(re.escape(term), case=False, na=False) | b.str.contains(re.escape(term), case=False, na=False)
+                a = base_df["Nombres"].map(limpiar_valor)
+                b = base_df["Apellidos"].map(limpiar_valor)
+                mask_busq = a.str.contains(re.escape(term), case=False, na=False) | b.str.contains(re.escape(term), case=False, na=False)
             else:
-                mask = df_lideres[COLUMNAS].apply(lambda col: col.map(limpiar_valor).str.contains(re.escape(term), case=False, na=False), axis=0).any(axis=1)
+                mask_busq = base_df[COLUMNAS].apply(lambda col: col.map(limpiar_valor).str.contains(re.escape(term), case=False, na=False), axis=0).any(axis=1)
+            resultado = base_df.loc[mask_busq]
+        elif filtro_pdf != "Todos los registros":
+            resultado = base_df
+        else:
+            resultado = pd.DataFrame()
 
-            resultado = df_lideres.loc[mask]
-
+        if busqueda.strip() or filtro_pdf != "Todos los registros":
             if not resultado.empty:
                 st.success(f"✅ Se encontraron {len(resultado)} registro(s).")
                 for idx, row in resultado.iterrows():
@@ -489,12 +510,14 @@ elif menu == "🔍 Consulta Detallada":
                                 st.markdown("### 📋 Planillas y Registros")
                                 st.markdown(f"**Municipio de Bello:** {valor(row, 'MUNICIPIO DE BELLO', '0')}\n\n**Otros Municipios:** {valor(row, 'OTROS MUNICIPIOS - DEPTOS', '0')}\n\n**No en Censo:** {valor(row, 'NO ESTA EN EL CENSO', '0')}\n\n**Cédula Errónea:** {valor(row, 'CEDULA ERRONEA', '0')}\n\n**Total Amigos:** {valor(row, 'Total No. Amigos', '0')}")
 
+                            st.markdown("---")
                             url = valor(row, "URL_PDF", "")
                             if url.startswith(("http://", "https://")):
-                                st.markdown("---")
                                 st.link_button("🔗 Abrir PDF Planilla", url)
+                            else:
+                                st.warning("⚠️ Este registro no tiene un enlace de PDF de planilla cargado.")
             else:
-                st.info("No se encontraron registros que coincidan con la búsqueda.")
+                st.info("No se encontraron registros que coincidan con los filtros aplicados.")
 
 elif menu == "🎂 Cumpleaños Próximos":
     st.title("🎂 Cumpleaños Hoy y Próximos 5 Días")
